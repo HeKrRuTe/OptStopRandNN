@@ -6,6 +6,9 @@ with open("README.md", "r") as fh:
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
+with open('LICENSE') as f:
+    license = f.read().splitlines()
+
 
 setuptools.setup(
     name="optimal_stopping",
@@ -17,6 +20,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/HeKrRuTe/OptStopRandNN",
+    license=license,
     packages=setuptools.find_packages(),
     install_requires=requirements,
     classifiers=[

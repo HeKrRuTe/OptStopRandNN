@@ -13,9 +13,9 @@ Then create a new environment
 and install all dependencies and this repo.
 * with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html):
  ```sh
- conda create --name OptStopRandNN python=3.7
- conda activate OptStopRandNN
- pip install --no-cache-dir -e .
+conda create --name OptStopRandNN python=3.7
+conda activate OptStopRandNN
+pip install --upgrade --no-cache-dir -e .
  ```
 * with virtualenv, use equivalent command for non debian based systems.
 ```sh
