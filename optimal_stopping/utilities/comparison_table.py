@@ -1,12 +1,19 @@
 """Write PDF table to compare algorithms results."""
+import copy
 import os.path
 from typing import Iterable
 
 import pandas as pd
+import numpy as np
 import tensorflow as tf
 
 from optimal_stopping.run import configs
 from optimal_stopping.utilities import read_data
+
+from absl import flags
+
+FLAGS = flags.FLAGS
+flags.DEFINE_list("rm_from_index", None, "List of keys to remove from index")
 
 
 _PDF_TABLE_TMPL = r"""
@@ -22,13 +29,52 @@ _PDF_TABLE_TMPL = r"""
 """
 
 ALGOS_ORDER = [
-  "LSPI", "LSM", "LSMRidge",  "LSMLaguerre",
-  "DOS", "pathDO", "NLSM",
-  "RLSM", "RLSMRidge", "RRLSM",
-  "FQI", "FQIR", "FQILaguerre",
-  "RFQI", "RRFQI",
+  "LN2", "LNfast", "LSPI",
+  "LSM", "LSMRidge",  "LSMLaguerre", "LSMDeg1",
+  "DOS", "pathDOS", "NLSM",
+  "RLSM", "RLSMTanh", "RLSMRidge",
+  "RLSMElu", "RLSMSilu", "RLSMGelu", "RLSMSoftplus",
+  "RRLSM", "RRLSMmix",
+  "FQI", "FQIR", "FQIRidge", "FQILasso", "FQILaguerre", "FQIDeg1",
+  "RFQI", "RFQITanh", "RFQIRidge", "RFQILasso", "RRFQI", 'pathRFQI',
+  "RFQISoftplus",
+  "EOP", "B",
 ]
 COLUMNS_ORDER = ["price", "duration"]
+
+USE_PAYOFF_FOR_ALGO = {
+  "LSM": True,
+  "LSMRidge": True,
+  "LSMLaguerre": True,
+  "LSMDeg1": True,
+  "DOS": True,
+  "pathDOS": True,
+  "NLSM": True,
+  "RLSM": True,
+  "RLSMTanh": True,
+  "RLSMRidge": True,
+  "RLSMElu": False,
+  "RLSMSilu": False,
+  "RLSMGelu": False,
+  "RLSMSoftplus": False,
+  "RRLSM": True,
+  "RRLSMmix": True,
+  "FQI": False,
+  "FQIR": False,
+  "FQIRidge": False,
+  "FQILasso": False,
+  "FQILaguerre": False,
+  "FQIDeg1": False,
+  "RFQI": False,
+  "RFQITanh": False,
+  "RFQIRidge": False,
+  "RFQILasso": False,
+  "RFQISoftplus": False,
+  "RRFQI": False,
+  'pathRFQI': False,
+  "EOP": False,
+  "B": False,
+}
 
 
 def write_table_price(label: str, config: configs._DefaultConfig, get_df=False):
@@ -63,10 +109,26 @@ def _human_time_delta(delta):
 def _write_table_for(
         label: str, config: configs._DefaultConfig,
         column_names: Iterable[str], caption: str,
-        get_df=False
+        get_df=False, which_time="comp_time",
+        get_max_usepayoff=False, get_algo_specific_usepayoff=True,
 ):
   df = read_data.read_csvs(config, remove_duplicates=False)
+  if which_time != 'duration' and 'duration' in column_names:
+    df.drop(columns=['duration'], inplace=True)
+    df.rename(columns={which_time: 'duration'}, inplace=True)
   df = df.filter(items=column_names)
+
+  # replace NaNs by "no_val", such that grouping etc still works
+  df.reset_index(inplace=True)
+  df[read_data.INDEX] = df[read_data.INDEX].replace(np.nan, "no_val")
+  rmfi = FLAGS.rm_from_index
+  index = read_data.INDEX
+  if rmfi is not None:
+    df.drop(columns=rmfi, inplace=True)
+    for i in rmfi:
+      index.remove(i)
+  all_algos = np.unique(df["algo"].values)
+  df.set_index(index, inplace=True)
 
   if 'price' in column_names:
     mean_price = df.groupby(df.index)['price'].mean()
@@ -79,7 +141,15 @@ def _write_table_for(
 
   df = df[~df.index.duplicated(keep='last')]
 
-  print(df)
+  if 'duration' in column_names:
+    try:
+      df['duration'] = median_duration
+      df['duration'] = [_human_time_delta(sec)
+                        for sec in df['duration']]
+    except Exception:
+      df['duration'] = None
+
+  # print(df)
   if 'price' in column_names:
     if get_df:
       df['price'] = mean_price
@@ -88,19 +158,50 @@ def _write_table_for(
       df['std_price'] = std #conf_interval_price
       df['price'] = ['%.2f (%.2f)' % ms
                      for ms in zip(df['mean_price'], df['std_price'])]
-      df = df.drop('mean_price', 'columns')
       df = df.drop('std_price', 'columns')
 
-  if 'duration' in column_names:
-    try:
-      df['duration'] = median_duration
-      df['duration'] = [_human_time_delta(sec)
-                             for sec in df['duration']]
-    except Exception:
-      df['duration'] = None
+      # for each algo keep the maximum value of using the payoff as input or not
+      if get_max_usepayoff and len(config.use_payoff_as_input) == 2:
+        ii = np.where(np.array(index) == "use_payoff_as_input")[0][0]
+        for ind in df.index:
+          ind1 = list(ind)
+          ind2 = copy.copy(ind1)
+          ind2[ii] = not ind2[ii]
+          try:
+            if df.loc[tuple(ind1), "price"] > df.loc[tuple(ind2), "price"]:
+              df.drop(index=tuple(ind2), inplace=True)
+            else:
+              df.drop(index=tuple(ind1), inplace=True)
+          except KeyError as e:
+            pass
+        df.reset_index(inplace=True)
+        index.remove("use_payoff_as_input")
+        df.drop(columns="use_payoff_as_input", inplace=True)
+        df.set_index(index, inplace=True)
+      # for each algo keep the algo-specific value of using the payoff or not
+      elif get_algo_specific_usepayoff and len(config.use_payoff_as_input) == 2:
+        ii = np.where(np.array(index) == "use_payoff_as_input")[0][0]
+        jj = np.where(np.array(index) == "algo")[0][0]
+        for ind in df.index:
+          ind1 = list(ind)
+          ind2 = copy.copy(ind1)
+          ind2[ii] = not ind2[ii]
+          try:
+            if ind1[ii] == USE_PAYOFF_FOR_ALGO[ind1[jj]]:
+              df.drop(index=tuple(ind2), inplace=True)
+            elif tuple(ind2) in df.index:
+              df.drop(index=tuple(ind1), inplace=True)
+          except KeyError as e:
+            pass
+        df.reset_index(inplace=True)
+        index.remove("use_payoff_as_input")
+        df.drop(columns="use_payoff_as_input", inplace=True)
+        df.set_index(index, inplace=True)
+
+      df2 = df["mean_price"]
+      df = df.drop('mean_price', 'columns')
 
   df, global_params_caption = read_data.extract_single_value_indexes(df)
-  # print(df)
   df = df.unstack('algo')
 
   def my_key(index):
@@ -114,12 +215,43 @@ def _write_table_for(
     df = df.to_frame().T
   print(df)
 
+  # get relative errors if reference price exists
+  df2, global_params_caption = read_data.extract_single_value_indexes(df2)
+  df2 = df2.unstack('algo')
+  df2 = df2["mean_price"]
+  if "EOP" in all_algos:
+    ref_algo = "EOP"
+    df2[ref_algo].fillna(method="ffill", inplace=True)
+  elif "B" in all_algos:
+    ref_algo = "B"
+  else:
+    ref_algo = None
+  for a,b in [["LSM", "RLSM"], ["FQI", "RFQI"], ["DOS", "RFQI"], ["FQI", "DOS"],
+              ["LSM", "RFQI"], ["DOS", "RLSM"], ["NLSM", "RLSM"],
+              ["RLSM", "RRLSM"], ["pathDOS", "RLSM"],]:
+    try:
+      print(a,b)
+      print((df2[a] - df2[b])/df2[a])
+    except Exception:
+      pass
+  if ref_algo:
+    for a in all_algos:
+      if a != ref_algo:
+        df2[a] = np.abs(df2[ref_algo] - df2[a])/df2[ref_algo]
+    print(df2)
+    df2.reset_index(inplace=True)
+    print(df2.loc[df2["nb_stocks"] <=100].max(axis=0))
+    print(df2.loc[df2["nb_stocks"] > 100].max(axis=0))
+
+
+
   if get_df:
     return df
 
   algos = df.columns.get_level_values("algo").unique()
 
-  bold_algos = ["RLSM", "RRLSM", "RFQI"]
+  # bold_algos = ["RLSM", "RRLSM", "RFQI"]
+  bold_algos = []
   _table_path = os.path.abspath(os.path.join(
     os.path.dirname(__file__), f"../../../latex/tables_draft/"))
   if not os.path.exists(_table_path):
@@ -160,7 +292,8 @@ def _write_table_for(
     if 'algo &' in line:
       new_lines.append(new_header)
     elif line.startswith('nb\\_stocks &') or line.startswith('hidden\\_size &') \
-        or line.startswith('maturity &') or line.startswith('payoff '):
+        or line.startswith('maturity &') or line.startswith('payoff ') \
+        or line.startswith('model '):
       continue
     elif oneline and line.startswith('{} &'):
       new_lines.append(line.replace('{} &', '').replace(
@@ -180,6 +313,7 @@ def _write_table_for(
   pdf_table = pdf_table.replace('train_ITM_only', 'train ITM only')
   pdf_table = pdf_table.replace('nb_dates', '$N$')
   pdf_table = pdf_table.replace('spot', '$x_0$')
+  pdf_table = pdf_table.replace('use_payoff_as_input', 'use P')
 
 
   with tf.io.gfile.GFile(table_path, "w") as tablef:

@@ -22,13 +22,17 @@ and install all dependencies and this repo.
 sudo apt-get install python3-venv
 python3 -m venv py3
 source py3/bin/activate
-pip3.7 install -e .
+pip3.7 install --no-cache-dir -e .
 ```
 
 That's all!
 
+---
+
 ## List of the algorithms available in Optimal Stopping Library
 
+* Finite Differences
+  * binomial: binomial tree.
 * Backward Induction
   * LSM: Least Square Monte Carlo. [(Longstaff and Schwartz, 2001)](https://people.math.ethz.ch/~hjfurrer/teaching/LongstaffSchwartzAmericanOptionsLeastSquareMonteCarlo.pdf)
   * NLSM: Neural Least Square Monte Carlo. [(Lapeyre  and Lelong, 2019)](https://arxiv.org/abs/1907.06474) [(Becker, Cheridito and Jentzen, 2019)](https://arxiv.org/abs/1912.11060)
@@ -40,6 +44,7 @@ That's all!
   * LSPI: least-squares policy iteration. [(Li, Szepesvari and Schuurmans, 2009)](http://proceedings.mlr.press/v5/li09d/li09d.pdf)
   * RFQI: randomized fitted Q-Iteration. [(Herrera, Krach, Ruyssen and Teichmann 2021)](https://arxiv.org/abs/2104.13669)
 
+---
 
 ## Running the algorithms
 
@@ -83,33 +88,88 @@ python3 -m cProfile optimal_stopping/run/run_algo.py   --algo=longstaffSchwartz 
 --nb_paths=1000   --nb_steps=100   --payoff=MaxPut   --output_dir=output                             
 ```
 
+**Overview of Flags for optimal_stopping/run/run_algo.py:**
+  - **configs**: list of config names to run
+  - **nb_jobs**: int, the number of parallel runs
+  - **print_errors**: debugging mode
+
+
+
 ### The Markovian Case
-<p align="center" width="100%">
-    <img width="100%" src="tables/table_spots_Dim_BS_MaxCall_gt-1.png">
-</p>
 Max call option on Black Scholes for different number of stocks d and varying initial stock price x0. RLSM achieves the highest prices while being the fastest and having considerably less trainable parameters.
 
 
-Generate the tables of the paper:
-```sh
-python optimal_stopping/run/run_algo.py --configs=table_spots_Dim_BS_MaxCall --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_Dim_Heston_MaxCall --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_spots_Dim_BS_MaxCall_bf --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_Dim_Heston_MaxCall_bf --nb_jobs=10;  
-python optimal_stopping/run/run_algo.py --configs=table_spots_Dim_BS_MaxCall_do --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_Dim_Heston_MaxCall_do --nb_jobs=10;
-python optimal_stopping/run/write_figures.py --configs=table_spots_Dim_BS_MaxCall_gt;
-python optimal_stopping/run/write_figures.py --configs=table_Dim_Heston_MaxCall_gt;
+Generate tables of paper:
+```shell
+python optimal_stopping/run/run_algo.py --configs="table_spots_Dim_BS_MaxCallr0","table_Dim_Heston_MaxCallr0","table_spots_Dim_BS_MaxCallr0_do","table_Dim_Heston_MaxCallr0_do","table_spots_Dim_BS_MaxCallr0_bf","table_Dim_Heston_MaxCallr0_bf","table_smallDim_BS_GeoPut","table_Dim_BS_BasktCallr0","table_Dim_BS_BasktCallr0_bf","table_manyDates_BS_MaxCallr0_1","table_manyDates_BS_MaxCallr0_2","table_spots_Dim_MaxCallr0_ref","table_spots_Dim_BasktCallr0_ref" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_spots_Dim_BS_MaxCallr0_gt1","table_Dim_Heston_MaxCallr0_gt1","table_BasketCall_payoffsr0_gt1","table_manyDates_BS_MaxCallr0_gt1";
+python optimal_stopping/run/write_figures.py --configs="table_GeoPut_payoffs_gt1" --rm_from_index="volatility","dividend","nb_dates";
+python optimal_stopping/utilities/plot_tables.py --configs="table_spots_Dim_BS_MaxCallr0_gt1","table_Dim_Heston_MaxCallr0_gt1","table_BasketCall_payoffsr0_gt1","table_GeoPut_payoffs_gt1","table_manyDates_BS_MaxCallr0_gt1";
 
-python optimal_stopping/run/run_algo.py --configs=table_smallDim_BS_GeoPut --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_Dim_BS_BasktCall --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_Dim_BS_BasktCall_bf --nb_jobs=10;
-python optimal_stopping/run/write_figures.py --configs=table_other_payoffs_gt;
+# true price for GeoPut
+python optimal_stopping/run/run_algo.py --configs="table_smallDim_BS_GeoPut_ref1","table_smallDim_BS_GeoPut_ref2","table_smallDim_BS_GeoPut_ref3","table_smallDim_BS_GeoPut_ref4","table_smallDim_BS_GeoPut_ref5","table_smallDim_BS_GeoPut_ref6","table_smallDim_BS_GeoPut_ref7","table_smallDim_BS_GeoPut_ref8","table_smallDim_BS_GeoPut_ref9" --nb_jobs=10;
 
-python optimal_stopping/run/run_algo.py --configs=table_manyDates_BS_MaxCall1 --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_manyDates_BS_MaxCall2 --nb_jobs=5;
-python optimal_stopping/run/write_figures.py --configs=table_manyDates_BS_MaxCall_gt;
+# RoughHeston
+python optimal_stopping/run/run_algo.py --configs="table_Dim_RoughHeston_MaxCallr0","table_Dim_RoughHeston_MaxCallr0_do","table_Dim_RoughHeston_MaxCallr0_bf","table_Dim_RoughHeston_MaxCallr0_RRLSM" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_Dim_RoughHeston_MaxCallr0_gt" --rm_from_index="factors";
+python optimal_stopping/run/write_figures.py --configs="table_Dim_RoughHeston_MaxCallr0_gt1" --rm_from_index="factors";
+python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_RoughHeston_MaxCallr0_gt1"
+
+# MinPut
+python optimal_stopping/run/run_algo.py --configs="table_spots_Dim_BS_MinPut","table_spots_Dim_BS_MinPut_do","table_spots_Dim_BS_MinPut_bf" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_spots_Dim_BS_MinPut_gt1"
+python optimal_stopping/utilities/plot_tables.py --configs="table_spots_Dim_BS_MinPut_gt1"
+
+# MaxCall with dividend
+python optimal_stopping/run/run_algo.py --configs="table_Dim_BS_MaxCall_div","table_Dim_BS_MaxCall_div_bf" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_Dim_BS_MaxCall_div_gt1";
+python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_BS_MaxCall_div_gt1";
+
+# MaxCall with dividend many dates
+python optimal_stopping/run/run_algo.py --configs="table_manyDates_BS_MaxCall_div_1","table_manyDates_BS_MaxCall_div_FQI","table_manyDates_BS_MaxCall_div_2","table_manyDates_BS_MaxCall_div_FQI_2" --nb_jobs=2;
+python optimal_stopping/run/write_figures.py --configs="table_manyDates_BS_MaxCall_div_gt1";
+python optimal_stopping/utilities/plot_tables.py --configs="table_manyDates_BS_MaxCall_div_gt1";
+
+# MinPut Heston
+python optimal_stopping/run/run_algo.py --configs="table_spots_Dim_Heston_MinPut","table_spots_Dim_Heston_MinPut_bf" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_spots_Dim_Heston_MinPut_gt1"
+python optimal_stopping/utilities/plot_tables.py --configs="table_spots_Dim_Heston_MinPut_gt1"
+
+# MaxCall with dividend Heston
+python optimal_stopping/run/run_algo.py --configs="table_Dim_Heston_MaxCall_div","table_Dim_Heston_MaxCall_div_bf" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_Dim_Heston_MaxCall_div_gt","table_Dim_Heston_MaxCall_div_gt1";
+python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_Heston_MaxCall_div_gt1";
 ```
+
+Tables of (rough) Heston with variance:
+```shell
+# MaxCall
+python optimal_stopping/run/run_algo.py --configs="table_Dim_HestonV_MaxCallr0","table_Dim_HestonV_MaxCallr0_bf","table_spots_Dim_HestonV_MaxCallr0_ref" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_Dim_HestonV_MaxCallr0_gt","table_Dim_HestonV_MaxCallr0_gt1";
+python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_HestonV_MaxCallr0_gt1"
+
+# GeoPut
+python optimal_stopping/run/run_algo.py --configs="table_smallDim_HestonV_GeoPut" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_GeoPut_HestonV_payoffs_gt","table_GeoPut_HestonV_payoffs_gt1";
+python optimal_stopping/utilities/plot_tables.py --configs="table_GeoPut_HestonV_payoffs_gt1"
+
+# MinPut
+python optimal_stopping/run/run_algo.py --configs="table_spots_Dim_HestonV_MinPut","table_spots_Dim_HestonV_MinPut_bf" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_spots_Dim_HestonV_MinPut_gt1";
+python optimal_stopping/utilities/plot_tables.py --configs="table_spots_Dim_HestonV_MinPut_gt1"
+
+# MaxCall Dividend
+python optimal_stopping/run/run_algo.py --configs="table_Dim_HestonV_MaxCall_div","table_Dim_HestonV_MaxCall_div_bf" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_Dim_HestonV_MaxCall_div_gt1";
+python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_HestonV_MaxCall_div_gt1"
+
+# RoughHeston
+python optimal_stopping/run/run_algo.py --configs="table_Dim_RoughHestonV_MaxCall","table_Dim_RoughHestonV_MaxCall_dopath","table_Dim_RoughHestonV_MaxCall_bf","table_Dim_RoughHestonV_MaxCall_RRLSM", --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs="table_Dim_RoughHestonV_MaxCall_gt" --rm_from_index="factors","use_path";
+python optimal_stopping/run/write_figures.py --configs="table_Dim_RoughHestonV_MaxCall_gt1" --rm_from_index="factors","use_path";
+python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_RoughHestonV_MaxCall_gt1"
+```
+
 
 ### Empirical Convergence studies:
 
@@ -129,15 +189,15 @@ python optimal_stopping/run/run_algo.py --configs=table_conv_study_BS_FQIR --nb_
 ```
 
 
-### The Non-Markovian Case: a fractional Bronian Motion
+### The Non-Markovian Case: a fractional Brownian Motion
 <p align="center" width="100%">
     <img width="33%" src="plots/hurst_plot1.png">
     <img width="33%" src="plots/hurst_plot2.png">
     <img width="33%" src="plots/hurst_plot3.png">
 </p>
-Left: algorithms processing  path information outperform. Middle: reinforcement learning algorithms do not work well in non-Markovian case. Right: RRLSM achieves similar results as reported in [(Becker, Cheridito and Jentzen, 2019)](https://arxiv.org/abs/1912.11060), while using only 20K paths instead of 4M for training wich took only 4s instead of the reported 430s.
+Left: algorithms processing path information outperform. Middle: reinforcement learning algorithms do not work well in non-Markovian case. Right: RRLSM achieves similar results as reported in [(Becker, Cheridito and Jentzen, 2019)](https://arxiv.org/abs/1912.11060), while using only 20K paths instead of 4M for training wich took only 4s instead of the reported 430s.
 
-**Generate the hurst plot of paper:**
+**Generate the hurst plot of the paper:**
 ```sh
 python optimal_stopping/run/run_algo.py --configs=table_RNN_DOS --nb_jobs=10;
 python optimal_stopping/run/run_algo.py --configs=table_RNN_DOS_PD --nb_jobs=10;
@@ -145,18 +205,16 @@ python optimal_stopping/run/run_algo.py --configs=table_RNN_DOS_bf --nb_jobs=10;
 python optimal_stopping/run/run_algo.py --configs=table_RNN_DOS_randRNN --nb_jobs=10;
 python optimal_stopping/run/run_algo.py --configs=table_RNN_DOS_FQIR_PD --nb_jobs=10;
 python optimal_stopping/run/run_algo.py --configs=table_RNN_DOS_FQIRRNN --nb_jobs=10;
-python amc2/plot_hurst.py;
+python optimal_stopping/utilities/plot_hurst.py;
 ```
 
-**Generate the hurst table of paper:**
+**Generate the hurst table of the paper:**
 ```sh
 python optimal_stopping/run/run_algo.py --configs=table_highdim_hurst0 --nb_jobs=10;
 python optimal_stopping/run/run_algo.py --configs=table_highdim_hurst_PD0 --nb_jobs=10;
 python optimal_stopping/run/run_algo.py --configs=table_highdim_hurst_RNN0 --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_highdim_hurst --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_highdim_hurst_PD --nb_jobs=10;
-python optimal_stopping/run/run_algo.py --configs=table_highdim_hurst_RNN --nb_jobs=10;
-python optimal_stopping/run/write_figures.py --configs=table_highdim_hurst_gt;
+python optimal_stopping/run/run_algo.py --configs="table_highdim_hurst","table_highdim_hurst_PD","table_highdim_hurst_RNN" --nb_jobs=10;
+python optimal_stopping/run/write_figures.py --configs=table_highdim_hurst_gt --rm_from_index="factors","use_path";
 ```
 
 ### Generate the Ridge Regression Tests:
@@ -172,13 +230,57 @@ python optimal_stopping/run/write_figures.py --configs=table_OtherBasis_MaxCall;
 ```
 
 
+### Compute Greeks (and price):
+Currently, the Greeks: delta, gamma, theta, rho and vega are supported.
+For the computation of delta and gamma, there are multiple computation possibilities, 
+since the computation of gamma (as 2nd derivative) tends to be unstable.
+The different possibilities are:
+  - central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and the respective 2nd order FD method for gamma. this is unstable for gamma (didn't produce good results in any of our tests) and is therefore not recommended.
+  - central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and computation of gamma via the Black-Scholes PDE. This gives good results, if theta is computed well (which is the case for all methods except NLSM and DOS). This method is currently restricted to the case of a underlying Black-Scholes model.
+  - both of the above methods can be computed either with or without freezing the execution boundary. We recommend to use *fd_freeze_exe_boundary=True*, since it stabilizes the results. Moreover, the epsilon for the FD method can be chosen (recommended *eps=1e-8*).
+  - the regression based method (see the "naive method" (Section 3.1) in [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)). This method is very stable. Here epsilon (the standard deviation of the distortion term) and the degree of the polynomial basis for regression have to be chosen (recommended *eps=5*, *poly_deg=9*).
+
+The greeks theta, rho, vega are always computed via forward FD method, since there are no stability issues (except for NLSM and DOS). Epsilon is pre-set to 1e-14, except for the binomial model, where too small epsilon values lead to instabilities (here the epsilon is controlled with *eps*, together with the epsilon for the FD method for delta and gamma). For the binomial model, we recommend *eps=1e-9*.
+
+**Generate the greeks table of the paper:**
+
+Via (central) [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference):
+```sh
+python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=0.00000001 --fd_freeze_exe_boundary=True
+```
+
+Via regression method (see the paper [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)):
+```sh
+python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="regression" --eps=5 --poly_deg=9
+```
+
+For the binomial model:
+````sh
+python optimal_stopping/run/run_algo.py --configs=table_greeks_binomial --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=1e-9
+````
+
+To get the table from the paper, run afterwards:
+```shell
+python optimal_stopping/utilities/get_comparison_csv.py
+```
+
+**Overview of flags specific to greeks computation:**
+  - **compute_greeks**: whether to compute greeks or do pricing only
+  - **greeks_method**: one of {"central", "forward", "backward", "regression"}
+  - **fd_compute_gamma_via_PDE**: whether to use Black-Scholes PDE to compute gamma. only works if model="BlackScholes".
+  - **eps**: the epsilon for the FD method or the standard deviation of the distortion term in the regression method.
+  - **fd_freeze_exe_boundary**: whether to use the central execution boundary for the upper and lower term also when computing delta.
+  - **poly_deg**: the degree of the polynomial used in the regression method
+
+---
 
 ## License
 
-This code can be used in accordance with the LICENSE.
+This code can be used in accordance with the [LICENSE](LICENSE).
 
-Citation
---------
+---
+
+## Citation
 
 If you use this library for your publications, please cite our paper:
 [Optimal Stopping via Randomized Neural Networks](https://arxiv.org/abs/2104.13669).
@@ -192,4 +294,9 @@ year      = {2021},
 url       = {https://arxiv.org/abs/2104.13669}}
 ```
 
-Last Page Update: **29/04/2021**
+---
+
+Last Page Update: **06/04/2022**
+
+
+

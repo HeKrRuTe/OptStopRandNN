@@ -12,8 +12,28 @@ from optimal_stopping.utilities import filtering
 INDEX = ["algo", "model", "payoff", "drift", "nb_stocks", "spot", "volatility",
          "nb_paths", "nb_dates", "strike", "dividend", "maturity",
          "hidden_size", "nb_epochs", "hurst",
-         "factors", "ridge_coeff", "use_path", "train_ITM_only"
+         "factors", "ridge_coeff", "use_path", "train_ITM_only",
+         "use_payoff_as_input",
          ]
+
+old_new_algo_dict = {
+  "L": "NLSM",
+  "FQIRfast": "RFQI",
+  "LNDfast": "RLSM",
+  "FQIfast": "FQI",
+  "LS": "LSM",
+  "DO": "DOS",
+  "randRNN": "RRLSM",
+  "FQIRfastRNN": "RRFQI"
+}
+
+def replace_old_algo_names():
+  csv_paths = get_csv_paths() + get_csv_paths_draft()
+
+  for f in csv_paths:
+    df = pd.read_csv(f, index_col=None)
+    df.replace(to_replace={"algo": old_new_algo_dict}, inplace=True)
+    df.to_csv(f, index=False)
 
 
 def get_csv_paths():
@@ -48,6 +68,7 @@ def read_csv(path: str, config: configs._DefaultConfig,
     df.to_csv(path, index=False)
     df = pd.read_csv(path, index_col=INDEX)
 
+  # print(df)
   return filtering.filter_df(df, config, reverse_filtering)
 
 

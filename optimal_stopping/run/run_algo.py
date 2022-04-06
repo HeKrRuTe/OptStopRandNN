@@ -30,7 +30,12 @@ from optimal_stopping.algorithms.backward_induction import NLSM
 from optimal_stopping.algorithms.reinforcement_learning import RFQI
 from optimal_stopping.algorithms.reinforcement_learning import FQI
 from optimal_stopping.algorithms.reinforcement_learning import LSPI
+from optimal_stopping.algorithms.reinforcement_learning import lenotre
+from optimal_stopping.algorithms.reinforcement_learning import lenotre2
+from optimal_stopping.algorithms.backward_induction import PMC
+from optimal_stopping.algorithms.finite_differences import binomial
 from optimal_stopping.run import write_figures
+from optimal_stopping.algorithms.backward_induction import backward_induction_pricer
 
 
 import joblib
@@ -73,14 +78,28 @@ flags.DEFINE_list("algos", None, "Name of the algos to run.")
 flags.DEFINE_bool("print_errors", False, "Set to True to print errors if any.")
 flags.DEFINE_integer("nb_jobs", NB_JOBS, "Number of CPUs to use parallelly")
 flags.DEFINE_bool("generate_pdf", False, "Whether to generate latex tables")
+flags.DEFINE_bool("compute_greeks", False,
+                  "Whether to compute greeks (not available for all settings)")
+flags.DEFINE_string("greeks_method", "central",
+                    "one of: central, forward, backward, regression")
+flags.DEFINE_float("eps", 0.001,
+                   "the epsilon for the finite difference method or regression")
+flags.DEFINE_integer("poly_deg", 2,
+                     "the degree for the polynomial regression")
+flags.DEFINE_bool("fd_freeze_exe_boundary", True,
+                  "Whether to use same exercise boundary")
+flags.DEFINE_bool("fd_compute_gamma_via_PDE", True,
+                  "Whether to use the PDE to compute gamma")
+
 
 _CSV_HEADERS = ['algo', 'model', 'payoff', 'drift', 'volatility', 'mean',
                 'speed', 'correlation', 'hurst', 'nb_stocks',
                 'nb_paths', 'nb_dates', 'spot', 'strike', 'dividend',
                 'maturity', 'nb_epochs', 'hidden_size', 'factors',
-                'ridge_coeff',
+                'ridge_coeff', 'use_payoff_as_input',
                 'train_ITM_only', 'use_path',
-                'price', 'duration']
+                'price', 'duration', 'time_path_gen', 'comp_time',
+                'delta', 'gamma', 'theta', 'rho', 'vega', 'greeks_method']
 
 _PAYOFFS = {
     "MaxPut": payoff.MaxPut,
@@ -90,35 +109,51 @@ _PAYOFFS = {
     "Identity": payoff.Identity,
     "Max": payoff.Max,
     "Mean": payoff.Mean,
+    "MinPut": payoff.MinPut,
+    "Put1Dim": payoff.Put1Dim,
 }
 
-_STOCK_MODELS = {
-    "BlackScholes": stock_model.BlackScholes,
-    "FractionalBlackScholes": stock_model.FractionalBlackScholes,
-    "FractionalBrownianMotion": stock_model.FractionalBrownianMotion,
-    'FractionalBrownianMotionPathDep':
-        stock_model.FractionalBrownianMotionPathDep,
-    "Heston": stock_model.Heston,
-}
+_STOCK_MODELS = stock_model.STOCK_MODELS
 
 _ALGOS = {
     "LSM": LSM.LeastSquaresPricer,
     "LSMLaguerre": LSM.LeastSquarePricerLaguerre,
     "LSMRidge": LSM.LeastSquarePricerRidge,
+    "LSMDeg1": LSM.LeastSquarePricerDeg1,
+
     "FQI": FQI.FQIFast,
     "FQILaguerre": FQI.FQIFastLaguerre,
+    "FQIRidge": FQI.FQIFastRidge,
+    "FQILasso": FQI.FQIFastLasso,
+    "FQIDeg1": FQI.FQIFastDeg1,
+
     "LSPI": LSPI.LSPI,  # TODO: this is a slow version -> update similar to FQI
 
     "NLSM": NLSM.NeuralNetworkPricer,
     "DOS": DOS.DeepOptimalStopping,
+    "pathDOS": DOS.DeepOptimalStopping,
 
     "RLSM": RLSM.ReservoirLeastSquarePricerFast,
+    "RLSMTanh": RLSM.ReservoirLeastSquarePricerFastTanh,
     "RLSMRidge": RLSM.ReservoirLeastSquarePricerFastRidge,
+    "RLSMElu": RLSM.ReservoirLeastSquarePricerFastELU,
+    "RLSMSilu": RLSM.ReservoirLeastSquarePricerFastSILU,
+    "RLSMGelu": RLSM.ReservoirLeastSquarePricerFastGELU,
+    "RLSMSoftplus": RLSM.ReservoirLeastSquarePricerFastSoftplus,
 
-    "RRLSM": RRLSM.ReservoirRNNLeastSquarePricer,
+    "RRLSM": RRLSM.ReservoirRNNLeastSquarePricer2,
+    "RRLSMmix": RRLSM.ReservoirRNNLeastSquarePricer,
 
     "RFQI": RFQI.FQI_ReservoirFast,
+    "RFQISoftplus": RFQI.FQI_ReservoirFastSoftplus,
+    "RFQITanh": RFQI.FQI_ReservoirFastTanh,
+    "RFQIRidge": RFQI.FQI_ReservoirFastRidge,
+    "RFQILasso": RFQI.FQI_ReservoirFastLasso,
+
     "RRFQI": RFQI.FQI_ReservoirFastRNN,
+
+    "EOP": backward_induction_pricer.EuropeanOptionPricer,
+    "B": binomial.BinomialPricer,
 }
 
 _NUM_FACTORS = {
@@ -159,15 +194,19 @@ def _run_algos():
         config.mean, config.speed, config.correlation, config.hurst,
         config.nb_epochs, config.hidden_size, config.factors,
         config.ridge_coeff,
-        config.train_ITM_only, config.use_path))
+        config.train_ITM_only, config.use_path, config.use_payoff_as_input))
     # random.shuffle(combinations)
     for params in combinations:
       for i in range(config.nb_runs):
         tmp_file_path = os.path.join(tmp_dirpath, str(tmp_files_idx))
         tmp_files_idx += 1
         delayed_jobs.append(joblib.delayed(_run_algo)(
-            tmp_file_path, *params, fail_on_error=FLAGS.print_errors)
-        )
+            tmp_file_path, *params, fail_on_error=FLAGS.print_errors,
+            compute_greeks=FLAGS.compute_greeks,
+            greeks_method=FLAGS.greeks_method,
+            eps=FLAGS.eps, poly_deg=FLAGS.poly_deg,
+            fd_freeze_exe_boundary=FLAGS.fd_freeze_exe_boundary,
+            fd_compute_gamma_via_PDE=FLAGS.fd_compute_gamma_via_PDE))
 
   print(f"Running {len(delayed_jobs)} tasks using "
         f"{FLAGS.nb_jobs}/{NUM_PROCESSORS} CPUs...")
@@ -193,8 +232,11 @@ def _run_algo(
         nb_stocks, payoff, drift, spot, stock_model, strike, volatility, mean,
         speed, correlation, hurst, nb_epochs, hidden_size=10,
         factors=(1.,1.,1.), ridge_coeff=1.,
-        train_ITM_only=True, use_path=False,
-        fail_on_error=False):
+        train_ITM_only=True, use_path=False, use_payoff_as_input=False,
+        fail_on_error=False,
+        compute_greeks=False, greeks_method=None, eps=None,
+        poly_deg=None, fd_freeze_exe_boundary=True,
+        fd_compute_gamma_via_PDE=True):
   """
   This functions runs one algo for option pricing. It is called by _run_algos()
   which is called in main(). Below the inputs are listed which have to be
@@ -248,6 +290,16 @@ def _run_algo(
    fail_on_error (bool): whether to continue when errors occure or not.
             Automatically passed from _run_algos(), with the value of
             FLAGS.print_errors.
+   compute_greeks (bool): whether to compute the greeks (delta and gamma),
+            not available in every setting
+   greeks_method (string): method for finite difference methods to compute greeks,
+            one of {'central', 'forward', 'backward'}
+   eps (float): the epsilon to use in finite difference method to compute
+            greeks
+   poly_deg (int): the degree for the polynomial regression usid in regression
+            based greeks computation
+   fd_freeze_exe_boundary (bool): whether to use same exersice boundary or not
+   fd_compute_gamma_via_PDE (bool): whether to compute gamma via the PDE
   """
   print(algo, spot, volatility, maturity, nb_paths, '... ', end="")
   payoff_ = _PAYOFFS[payoff](strike)
@@ -256,37 +308,74 @@ def _run_algo(
       correlation=correlation, nb_stocks=nb_stocks,
       nb_paths=nb_paths, nb_dates=nb_dates,
       spot=spot, dividend=dividend,
-      maturity=maturity)
+      maturity=maturity, name=stock_model)
   if algo in ['NLSM']:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
                             hidden_size=hidden_size,
-                            train_ITM_only=train_ITM_only)
-  elif algo in ["DOS"]:
+                            train_ITM_only=train_ITM_only,
+                            use_payoff_as_input=use_payoff_as_input)
+  elif algo in ["LND", "LN", "LNfast", "LN2"]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
-                            hidden_size=hidden_size, use_path=use_path)
-  elif algo in ["RLSM", "RRLSM", "RRFQI", "RFQI",]:
+                            hidden_size=hidden_size,
+                            use_payoff_as_input=use_payoff_as_input)
+  elif algo in ["DOS", "pathDOS"]:
+      if algo == "DOS" and use_path:
+          print("change use_path to 'False', otherwise use the algo 'pathDOS'")
+          use_path = False
+      if algo == "pathDOS" and not use_path:
+          print("change use_path to 'True', otherwise use the algo 'DOS'")
+          use_path = True
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
-                            hidden_size=hidden_size, factors=factors,
-                            train_ITM_only=train_ITM_only)
-  elif algo in ["RLSMRidge"]:
+                            hidden_size=hidden_size, use_path=use_path,
+                            use_payoff_as_input=use_payoff_as_input)
+  elif algo in ["RLSM", "RRLSMmix", "RRLSM", "RLSMTanh", "RLSMElu", "RLSMSilu",
+                "RLSMGelu","RLSMSoftplus",
+                "RRFQI", "RFQITanh", "RFQI",]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
                             hidden_size=hidden_size, factors=factors,
                             train_ITM_only=train_ITM_only,
-                            ridge_coeff=ridge_coeff)
-  elif algo in ["LSM", "LSMLaguerre"]:
+                            use_payoff_as_input=use_payoff_as_input)
+  elif algo in ["RLSMRidge", "RFQIRidge"]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
-                            train_ITM_only=train_ITM_only)
+                            hidden_size=hidden_size, factors=factors,
+                            train_ITM_only=train_ITM_only,
+                            ridge_coeff=ridge_coeff,
+                            use_payoff_as_input=use_payoff_as_input)
+  elif algo in ["FQIRidge"]:
+      pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
+                            ridge_coeff=ridge_coeff,
+                            use_payoff_as_input=use_payoff_as_input)
+  elif algo in ["LSM", "LSMDeg1", "LSMLaguerre"]:
+      pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
+                            train_ITM_only=train_ITM_only,
+                            use_payoff_as_input=use_payoff_as_input)
   elif algo in ["LSMRidge"]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
                             train_ITM_only=train_ITM_only,
-                            ridge_coeff=ridge_coeff)
+                            ridge_coeff=ridge_coeff,
+                            use_payoff_as_input=use_payoff_as_input)
   else:
-      pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs)
+      pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
+                            use_payoff_as_input=use_payoff_as_input)
 
   t_begin = time.time()
+
+  # price, gen_time, delta, gamma = pricer.price_and_greeks(
+  #     eps=eps, greeks_method=greeks_method, poly_deg=poly_deg,
+  #     fd_freeze_exe_boundary=fd_freeze_exe_boundary)
+  # print(price, gen_time, delta, gamma)
+
   try:
-    price = pricer.price()
+    if not compute_greeks:
+        price, gen_time = pricer.price()
+        delta, gamma, theta, rho, vega = [None]*5
+    else:
+        price, gen_time, delta, gamma, theta, rho, vega = pricer.price_and_greeks(
+            eps=eps, greeks_method=greeks_method, poly_deg=poly_deg,
+            fd_freeze_exe_boundary=fd_freeze_exe_boundary,
+            fd_compute_gamma_via_PDE=fd_compute_gamma_via_PDE)
     duration = time.time() - t_begin
+    comp_time = duration - gen_time
   except BaseException as err:
     if fail_on_error:
       raise
@@ -311,17 +400,27 @@ def _run_algo(
   metrics_['maturity'] = maturity
   metrics_['price'] = price
   metrics_['duration'] = duration
+  metrics_['time_path_gen'] = gen_time
+  metrics_['comp_time'] = comp_time
   metrics_['hidden_size'] = hidden_size
   metrics_['factors'] = factors
   metrics_['ridge_coeff'] = ridge_coeff
   metrics_['nb_epochs'] = nb_epochs
   metrics_['train_ITM_only'] = train_ITM_only
   metrics_['use_path'] = use_path
-  print("price: ", price, "duration: ", duration)
+  metrics_['use_payoff_as_input'] = use_payoff_as_input
+  metrics_['delta'] = delta
+  metrics_['gamma'] = gamma
+  metrics_['theta'] = theta
+  metrics_['rho'] = rho
+  metrics_['vega'] = vega
+  metrics_['greeks_method'] = greeks_method
+  print("price: ", price, "computation-time: ", comp_time,
+        "delta: ", delta, "gamma: ", gamma, "theta: ", theta, "rho: ", rho,
+        "vega: ", vega)
   with open(metrics_fpath, "w") as metrics_f:
     writer = csv.DictWriter(metrics_f, fieldnames=_CSV_HEADERS)
     writer.writerow(metrics_)
-
 
 
 def main(argv):
@@ -361,3 +460,5 @@ def main(argv):
 
 if __name__ == "__main__":
   app.run(main)
+
+

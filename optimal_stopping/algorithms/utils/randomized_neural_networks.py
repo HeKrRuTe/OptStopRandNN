@@ -1,5 +1,23 @@
+import numpy as np
 import torch
 
+
+
+class Reservoir:
+    def __init__(self, hidden_size, state_size):
+        self.Weight_matrix_A = np.random.normal(0, 1, (hidden_size, state_size))
+        self.biais_vector_b = np.random.normal(0, 1, hidden_size)
+
+
+    def activation_function(self, x):
+        return np.tanh(x)
+
+
+    def evaluate(self, state):
+        evaluated_nn = self.Weight_matrix_A.dot(state) + self.biais_vector_b
+        evaluated_nn = [self.activation_function(x) for x in evaluated_nn]
+        evaluated_nn.append(1)
+        return evaluated_nn
 
 
 def init_weights(m, mean=0., std=1.):
@@ -20,17 +38,23 @@ def init_weights_gen(mean=0., std=1., mean_b=0., std_b=1., dist=0):
                 torch.nn.init.uniform_(m.bias, mean_b, std_b)
             elif dist == 2:
                 torch.nn.init.xavier_uniform_(m.weight)
-                torch.nn.init.xavier_uniform_(m.bias)
+                try:
+                    torch.nn.init.xavier_uniform_(m.bias)
+                except Exception:
+                    torch.nn.init.normal_(m.bias, mean_b, std_b)
             elif dist == 3:
                 torch.nn.init.xavier_normal_(m.weight)
-                torch.nn.init.xavier_normal_(m.bias)
+                try:
+                    torch.nn.init.xavier_normal_(m.bias)
+                except Exception:
+                    torch.nn.init.normal_(m.bias, mean_b, std_b)
             else:
                 raise ValueError
     return init_weights
 
 
 
-class Reservoir(torch.nn.Module):
+class Reservoir2(torch.nn.Module):
     def __init__(self, hidden_size, state_size, factors=(1.,),
                  activation=torch.nn.LeakyReLU(0.5)):
         super().__init__()

@@ -18,6 +18,7 @@ from optimal_stopping.algorithms.utils import neural_networks
 
 def init_weights(m):
   if isinstance(m, torch.nn.Linear):
+    # torch.manual_seed(42)
     torch.nn.init.xavier_uniform_(m.weight)
     m.bias.data.fill_(0.01)
 
@@ -30,12 +31,14 @@ class NeuralNetworkPricer(backward_induction_pricer.AmericanOptionPricer):
   The weights of the neural network are optimized using gradient descent.
   """
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               hidden_size=10, train_ITM_only=True):
+               hidden_size=10, train_ITM_only=True, use_payoff_as_input=False):
     del nb_batches
-    super().__init__(model, payoff, train_ITM_only=train_ITM_only)
+    super().__init__(model, payoff, train_ITM_only=train_ITM_only,
+                     use_payoff_as_input=use_payoff_as_input)
     #neural regression class: train/evaluation of the neural network.
     self.neural_regression = NeuralRegression(
-      model.nb_stocks, model.nb_paths, hidden_size=hidden_size,
+      model.nb_stocks*(1+self.use_var)+self.use_payoff_as_input*1,
+      model.nb_paths, hidden_size=hidden_size,
       nb_iters=nb_epochs)
 
   def calculate_continuation_value(self, values, immediate_exercise_value,

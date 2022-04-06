@@ -11,7 +11,20 @@ class BasisFunctions:
         # print("self.nb_base_fcts", self.nb_base_fcts)
         # print("nb_stocks",  self.nb_stocks)
 
-    def base_fct(self, i, x):
+    def base_fct(self, i, x, d2=False):
+        if d2:
+            bf=np.nan
+            if (i == 0):
+                bf = np.ones_like(x[:, 0]) # (constant)
+            elif (i <= self.nb_stocks):
+                bf = x[:, i-1] # (x1, x2, ..., xn)
+            elif (self.nb_stocks < i <= 2 * self.nb_stocks):
+                k = i - self.nb_stocks - 1
+                bf = x[:, k] ** 2 # (x1^2, x2^2, ..., xn^2)
+            elif (i > 2 * self.nb_stocks):
+                k = i - 2*self.nb_stocks -1
+                bf = x[:, self.combs[k][0]] * x[:, self.combs[k][1]] # (x1x2, ..., xn-1xn)
+            return bf
         bf=np.nan
         if (i == 0):
             bf = np.ones_like(x[0]) # (constant)
@@ -26,11 +39,29 @@ class BasisFunctions:
         return bf
 
 
+class BasisFunctionsDeg1:
+    def __init__(self, nb_stocks):
+        self.nb_stocks = nb_stocks
+        self.nb_base_fcts = 1 + self.nb_stocks
+        # print("self.nb_base_fcts", self.nb_base_fcts)
+        # print("nb_stocks",  self.nb_stocks)
+
+    def base_fct(self, i, x):
+        bf=np.nan
+        if (i == 0):
+            bf = np.ones_like(x[0]) # (constant)
+        elif (i <= self.nb_stocks):
+            bf = x[i-1] # (x1, x2, ..., xn)
+        return bf
+
+
 class BasisFunctionsLaguerre:
     def __init__(self, nb_stocks, K=1):
         self.nb_stocks = nb_stocks
         self.nb_base_fcts = 1 + 3 * self.nb_stocks
         self.K = K
+        # print("self.nb_base_fcts", self.nb_base_fcts)
+        # print("nb_stocks",  self.nb_stocks)
 
     def base_fct(self, i, x):
         bf=np.nan
@@ -55,6 +86,8 @@ class BasisFunctionsLaguerreTime:
         self.nb_base_fcts = 1 + 3 * self.nb_stocks
         self.T = T
         self.K = K
+        # print("self.nb_base_fcts", self.nb_base_fcts)
+        # print("nb_stocks",  self.nb_stocks)
 
     def base_fct(self, i, x):
         bf = np.nan

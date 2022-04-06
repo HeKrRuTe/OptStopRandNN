@@ -28,15 +28,19 @@ class LeastSquares(Regression):
     """ Calculate continuation values by least squares regression."""
     nb_paths, nb_stocks = X.shape
     reg_vect_mat = np.empty((nb_paths, self.bf.nb_base_fcts))
-    for path in range(nb_paths):
-      for coeff in range(self.bf.nb_base_fcts):
-        reg_vect_mat[path, coeff] = self.bf.base_fct(coeff, X[path, :])
+    for coeff in range(self.bf.nb_base_fcts):
+      reg_vect_mat[:, coeff] = self.bf.base_fct(coeff, X[:, :], d2=True)
     coefficients = np.linalg.lstsq(
       reg_vect_mat[in_the_money[0]], Y[in_the_money[0]], rcond=None)
     continuation_values = np.dot(reg_vect_mat[in_the_money_all[0]],
                                  coefficients[0])
     return continuation_values
 
+
+class LeastSquaresDeg1(LeastSquares):
+  def __init__(self, nb_stocks):
+    self.nb_stocks = nb_stocks
+    self.bf = basis_functions.BasisFunctionsDeg1(self.nb_stocks)
 
 
 class LeastSquaresLaguerre(LeastSquares):
@@ -50,7 +54,6 @@ class LeastSquaresLaguerre(LeastSquares):
 
 class LeastSquaresRidge(Regression):
   """ Calculate continuation values by Ridge regression."""
-
   def __init__(self, nb_stocks, ridge_coeff=1.,):
     self.nb_stocks = nb_stocks
     self.bf = basis_functions.BasisFunctions(self.nb_stocks)
@@ -60,26 +63,43 @@ class LeastSquaresRidge(Regression):
   def calculate_regression(self, X, Y, in_the_money, in_the_money_all):
     nb_paths, nb_stocks = X.shape
     reg_vect_mat = np.empty((nb_paths, self.bf.nb_base_fcts))
-    for path in range(nb_paths):
-      for coeff in range(self.bf.nb_base_fcts):
-        reg_vect_mat[path, coeff] = self.bf.base_fct(coeff, X[path, :])
-
+    for coeff in range(self.bf.nb_base_fcts):
+      reg_vect_mat[:, coeff] = self.bf.base_fct(coeff, X[:, :], d2=True)
     model = sklearn.linear_model.Ridge(alpha=self.alpha)
     model.fit(X=reg_vect_mat[in_the_money[0]], y=Y[in_the_money[0]])
     continuation_values = model.predict(reg_vect_mat[in_the_money_all[0]])
     return continuation_values
 
 
-
 class ReservoirLeastSquares(Regression):
-  """  Calculate continuation values by least squares regression using
-  randomized neural networks.
-  """
+  def __init__(self, state_size, hidden_size=10):
+    self.nb_base_fcts = hidden_size + 1
+    self.state_size = state_size
+    self.reservoir = randomized_neural_networks.Reservoir(
+      hidden_size, self.state_size)
+
+  def calculate_regression(self, X_unsorted, Y, in_the_money, in_the_money_all):
+    X = X_unsorted
+    nb_paths, nb_stocks = X.shape
+    reg_vect_mat = np.empty((nb_paths, self.nb_base_fcts))
+    for ipath in range(nb_paths):
+      state = X[ipath, :]
+      evaluated_nn = self.reservoir.evaluate(state)
+      reg_vect_mat[ipath] = evaluated_nn
+    coefficients = np.linalg.lstsq(
+      reg_vect_mat[in_the_money[0]], Y[in_the_money[0]], rcond=None)
+    continuation_values = np.dot(reg_vect_mat[in_the_money_all[0]],
+                                 coefficients[0])
+    return continuation_values
+
+
+
+class ReservoirLeastSquares2(Regression):
   def __init__(self, state_size, hidden_size=10, factors=(1.,),
                activation=torch.nn.LeakyReLU(0.5)):
     self.nb_base_fcts = hidden_size + 1
     self.state_size = state_size
-    self.reservoir = randomized_neural_networks.Reservoir(
+    self.reservoir = randomized_neural_networks.Reservoir2(
       hidden_size, self.state_size, factors=factors, activation=activation)
 
   def calculate_regression(self, X_unsorted, Y, in_the_money, in_the_money_all):
@@ -101,7 +121,7 @@ class ReservoirLeastSquaresRidge(Regression):
     self.nb_base_fcts = hidden_size + 1
     self.state_size = state_size
     self.alpha = ridge_coeff
-    self.reservoir = randomized_neural_networks.Reservoir(
+    self.reservoir = randomized_neural_networks.Reservoir2(
       hidden_size, self.state_size, factors=factors, activation=activation)
 
   def calculate_regression(self, X_unsorted, Y, in_the_money, in_the_money_all):

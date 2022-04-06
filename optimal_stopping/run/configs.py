@@ -8,6 +8,11 @@ TablePrice = FigureType("TablePrice")
 TableDuration = FigureType("TableDuration")
 PricePerNbPaths = FigureType("PricePerNbPaths")
 
+'''
+Algos:NLSM, LSM, LS2, DOS, HP, LSPI, FQI, FQIR, LN, LN2, LND
+New algos = RLSM, FQI, RFQI, LNfast
+'''
+
 
 @dataclass
 class _DefaultConfig:
@@ -16,6 +21,8 @@ class _DefaultConfig:
                           'DOS',
                           'FQI',
                           'RFQI',
+                          'LNfast',
+                          'LN2',
                           'RLSM')
   dividends: Iterable[float] = (0.0,)
   nb_dates: Iterable[int] = (10,)
@@ -39,8 +46,9 @@ class _DefaultConfig:
   ridge_coeff: Iterable[float] = (1.,)
   train_ITM_only: Iterable[bool] = (True,)
   use_path: Iterable[bool] = (False,)
+  use_payoff_as_input: Iterable[bool] = (False,)
   representations: Iterable[str] = ('TablePriceDuration',)
-  # When adding a filter here, also add to filtering.py.
+  # When adding a filter here, also add to filtering.py and read_data.py
 
 
 '''
@@ -53,23 +61,6 @@ class _DimensionTable(_DefaultConfig):
   nb_stocks: Iterable[int] = (5, 10, 50, 100, 500, 1000, 2000)
 
 
-table_spots_Dim_BS_MaxCall = _DimensionTable(spots=[80, 100, 120])
-table_Dim_Heston_MaxCall = _DimensionTable(stock_models=['Heston'])
-table_Dim_FracBS_MaxCall = _DimensionTable(
-    stock_models = ['FractionalBlackScholes'])
-
-algos = ['DOS',]
-table_spots_Dim_BS_MaxCall_do = _DimensionTable(
-    algos=algos,
-    spots=[80, 100,  120])
-table_Dim_Heston_MaxCall_do = _DimensionTable(
-    algos=algos,
-    stock_models=['Heston'])
-table_Dim_FracBS_MaxCall_do = _DimensionTable(
-    algos=algos,
-    stock_models=['FractionalBlackScholes'])
-
-
 # tables with basis functions
 @dataclass
 class _SmallDimensionTable(_DefaultConfig):
@@ -77,52 +68,407 @@ class _SmallDimensionTable(_DefaultConfig):
   nb_stocks: Iterable[int] = (5, 10, 50, 100)
 
 
-table_spots_Dim_BS_MaxCall_bf = _SmallDimensionTable(spots=[80, 100,  120])
-table_Dim_Heston_MaxCall_bf = _SmallDimensionTable(stock_models=['Heston'])
-table_Dim_FracBS_MaxCall_bf = _SmallDimensionTable(
-    stock_models=['FractionalBlackScholes'])
-
-# tables to generate output tables
-algos = ['NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS']
-table_spots_Dim_BS_MaxCall_gt = _DimensionTable(
-    spots=[80, 100,  120], algos=algos)
-table_Dim_Heston_MaxCall_gt = _DimensionTable(
-    stock_models=['Heston'], algos=algos)
-table_Dim_FracBS_MaxCall_gt = _DimensionTable(
-    stock_models=['FractionalBlackScholes'], algos=algos)
-
-
 @dataclass
 class _VerySmallDimensionTable(_DefaultConfig):
-  nb_stocks: Iterable[int] = (1, 5, 10, 20)
+  nb_stocks: Iterable[int] = (5, 10, 20)
+  algos: Iterable[str] = ('NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS')
 
 
-table_smallDim_BS_GeoPut_BasketCall = _VerySmallDimensionTable(
-    payoffs=['GeometricPut', 'BasketCall'], algos=algos)
 
+'''
+Comparison prices and computation time 
+'''
+
+# BS and Heston MaxCall
+table_spots_Dim_BS_MaxCallr0 = _DimensionTable(
+    spots=[80, 100, 120], drift=(0.0,), use_payoff_as_input=(True, False))
+table_Dim_Heston_MaxCallr0 = _DimensionTable(
+    stock_models=['Heston'], drift=(0.0,), use_payoff_as_input=(True, False))
+#   -- table for do
+algos = ['DOS',]
+table_spots_Dim_BS_MaxCallr0_do = _DimensionTable(
+    algos=algos, drift=(0.0,), use_payoff_as_input=(True, False),
+    spots=[80, 100,  120])
+table_Dim_Heston_MaxCallr0_do = _DimensionTable(
+    algos=algos, drift=(0.0,), use_payoff_as_input=(True, False),
+    stock_models=['Heston'])
+#   -- tables with basis functions
+table_spots_Dim_BS_MaxCallr0_bf = _SmallDimensionTable(
+    spots=[80, 100,  120], drift=(0.0,), use_payoff_as_input=(True, False))
+table_Dim_Heston_MaxCallr0_bf = _SmallDimensionTable(
+    stock_models=['Heston'], drift=(0.0,), use_payoff_as_input=(True, False))
+#   -- true price
+table_spots_Dim_MaxCallr0_ref = _DimensionTable(
+    spots=[80, 100, 120], drift=(0.0,), algos=["EOP"],
+    stock_models=['BlackScholes', 'Heston'])
+#   -- tables to generate output tables
+algos = ['NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS', 'EOP', 'B']
+table_spots_Dim_BS_MaxCallr0_gt1 = _DimensionTable(
+    spots=[80, 100,  120], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.0,), use_payoff_as_input=(True, False,))
+table_Dim_Heston_MaxCallr0_gt1 = _DimensionTable(
+    stock_models=['Heston'], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.0,), use_payoff_as_input=(True, False))
+
+# Heston with Var
+table_Dim_HestonV_MaxCallr0 = _DimensionTable(
+    algos=['NLSM', 'RFQI', 'RLSM', 'DOS'],
+    stock_models=['HestonWithVar'], drift=(0.0,), use_payoff_as_input=(True, False))
+#   -- tables with basis functions
+table_Dim_HestonV_MaxCallr0_bf = _SmallDimensionTable(
+    stock_models=['HestonWithVar'], drift=(0.0,), nb_stocks=(5, 10, 50,),
+    use_payoff_as_input=(True, False))
+#   -- true price
+table_spots_Dim_HestonV_MaxCallr0_ref = _DimensionTable(
+    spots=[80, 100, 120], drift=(0.0,), algos=["EOP"],
+    stock_models=['HestonWithVar'])
+#   -- tables to generate output tables
+table_Dim_HestonV_MaxCallr0_gt1 = _DimensionTable(
+    stock_models=['HestonWithVar'], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.0,), use_payoff_as_input=(True, False))
+
+
+# RoughHeston model
+table_Dim_RoughHeston_MaxCallr0 = _DimensionTable(
+    nb_stocks=[5, 10, 50, 100], train_ITM_only=[False,],
+    stock_models=['RoughHeston'], dividends=[0.1], drift=(0.05,), hurst=(0.05,),
+    use_payoff_as_input=(False, True))
+table_Dim_RoughHeston_MaxCallr0_do = _DimensionTable(
+    algos=['DOS',], dividends=[0.1], drift=(0.05,), hurst=(0.05,),
+    nb_stocks=[5, 10, 50, 100],
+    use_payoff_as_input=(False, True), train_ITM_only=[False,],
+    stock_models=['RoughHeston'])
+table_Dim_RoughHeston_MaxCallr0_dopath = _DimensionTable(
+    algos=['pathDOS',], dividends=[0.1], drift=(0.05,), hurst=(0.05,),
+    nb_stocks=[5, 10, 50, 100], use_path=[True],
+    use_payoff_as_input=(False, True), train_ITM_only=[False,],
+    stock_models=['RoughHeston'])
+table_Dim_RoughHeston_MaxCallr0_bf = _SmallDimensionTable(
+    stock_models=['RoughHeston'], dividends=[0.1], drift=(0.05,), hurst=(0.05,),
+    use_payoff_as_input=(False, True), nb_stocks=[5, 10, 50, 100],
+    train_ITM_only=[False,],)
+table_Dim_RoughHeston_MaxCallr0_RRLSM = _DimensionTable(
+    algos=['RRLSM', 'RRFQI'], train_ITM_only=[False], nb_stocks=[5, 10, 50, 100],
+    factors=[[0.0008, 0.11], [0.0001, 0.3]], hurst=(0.05,),
+    stock_models=['RoughHeston'], dividends=[0.1], drift=(0.05,),
+    use_payoff_as_input=(False, True))
+table_Dim_RoughHeston_MaxCallr0_gt1 = _DimensionTable(
+    train_ITM_only=[False,], nb_stocks=[5, 10, 50, 100],
+    factors=[str((1., 1., 1.)), str([0.0001, 0.3])],
+    stock_models=['RoughHeston'], hurst=(0.05,),
+    algos=['NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS', 'RRLSM', 'pathDOS'],
+    ridge_coeff=[1, np.nan, None],
+    dividends=[0.1], drift=(0.05,), use_payoff_as_input=(False, True))
+
+# RoughHestonWithVar model
+table_Dim_RoughHestonV_MaxCall = _DimensionTable(
+    algos=['NLSM', 'RFQI', 'RLSM', 'DOS'],
+    nb_stocks=[5, 10, 50, 100], train_ITM_only=[False,],
+    stock_models=['RoughHestonWithVar'], dividends=[0.1], drift=(0.05,),
+    hurst=(0.05,), use_payoff_as_input=(False, True))
+table_Dim_RoughHestonV_MaxCall_dopath = _DimensionTable(
+    algos=['pathDOS',], dividends=[0.1], drift=(0.05,), hurst=(0.05,),
+    nb_stocks=[5, 10, 50, 100], use_path=[True],
+    use_payoff_as_input=(False, True), train_ITM_only=[False,],
+    stock_models=['RoughHestonWithVar'])
+table_Dim_RoughHestonV_MaxCall_bf = _SmallDimensionTable(
+    stock_models=['RoughHestonWithVar'], dividends=[0.1], drift=(0.05,),
+    hurst=(0.05,), use_payoff_as_input=(False, True), nb_stocks=[5, 10, 50,],
+    train_ITM_only=[False,],)
+table_Dim_RoughHestonV_MaxCall_RRLSM = _DimensionTable(
+    algos=['RRLSM', 'RRFQI'], train_ITM_only=[False], nb_stocks=[5, 10, 50, 100],
+    factors=[[0.0008, 0.11], [0.0001, 0.3]], hurst=(0.05,),
+    stock_models=['RoughHestonWithVar'], dividends=[0.1], drift=(0.05,),
+    use_payoff_as_input=(False, True))
+table_Dim_RoughHestonV_MaxCall_gt1 = _DimensionTable(
+    train_ITM_only=[False,], nb_stocks=[5, 10, 50, 100],
+    factors=[str((1., 1., 1.)), str([0.0001, 0.3])],
+    stock_models=['RoughHestonWithVar'], hurst=(0.05,),
+    algos=['NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS', 'RRLSM', 'pathDOS'],
+    ridge_coeff=[1, np.nan, None],
+    dividends=[0.1], drift=(0.05,), use_payoff_as_input=(False, True))
+
+
+# GeoPut
 table_smallDim_BS_GeoPut = _VerySmallDimensionTable(
-    payoffs=['GeometricPut'], algos=algos)
-table_Dim_BS_BasktCall = _DimensionTable(
-    payoffs=['BasketCall'], algos=('NLSM', 'RFQI', 'RLSM', 'DOS'))
-table_Dim_BS_BasktCall_bf = _SmallDimensionTable(payoffs=['BasketCall'])
-table_other_payoffs_gt = _DimensionTable(
-    payoffs=['BasketCall', 'GeometricPut'], algos=algos,
-    nb_stocks=[1, 5, 10, 20, 50, 100, 500, 1000, 2000])
+    payoffs=['GeometricPut'],
+    nb_stocks=[5, 10, 20, 50,100],
+    algos=['NLSM', 'RFQI', 'RLSM', 'DOS', ],
+    stock_models=['Heston', 'BlackScholes'],
+    use_payoff_as_input=(True, False))
+table_smallDim_BS_GeoPut_BS = _VerySmallDimensionTable(
+    payoffs=['GeometricPut'],
+    nb_stocks=[5,10,20,50,100,],
+    algos=['LSM', 'FQI', ],
+    stock_models=['Heston', 'BlackScholes'],
+    use_payoff_as_input=(True, False))
+#   -- true price GeoPut
+#      ATTENTION: after running, the payoff, nb_dates, nb_stocks, dividends,
+#      volatility, need to
+#      be changed in the metric file to get the correct tables
+table_smallDim_BS_GeoPut_ref1 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[0.2], dividends=[0.0],
+    stock_models=['BlackScholes'],)
+sig2 = 0.2*np.sqrt(5)/5
+table_smallDim_BS_GeoPut_ref2 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig2], dividends=[0.2**2/2 - sig2**2/2],
+    stock_models=['BlackScholes'],)
+sig3 = 0.2*np.sqrt(10)/10
+table_smallDim_BS_GeoPut_ref3 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig3], dividends=[0.2**2/2 - sig3**2/2],
+    stock_models=['BlackScholes'],)
+sig4 = 0.2*np.sqrt(20)/20
+table_smallDim_BS_GeoPut_ref4 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig4], dividends=[0.2**2/2 - sig4**2/2],
+    stock_models=['BlackScholes'],)
+sig5 = 0.2*np.sqrt(50)/50
+table_smallDim_BS_GeoPut_ref5 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig5], dividends=[0.2**2/2 - sig5**2/2],
+    stock_models=['BlackScholes'],)
+sig6 = 0.2*np.sqrt(100)/100
+table_smallDim_BS_GeoPut_ref6 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig6], dividends=[0.2**2/2 - sig6**2/2],
+    stock_models=['BlackScholes'],)
+sig7 = 0.2*np.sqrt(500)/500
+table_smallDim_BS_GeoPut_ref7 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig7], dividends=[0.2**2/2 - sig7**2/2],
+    stock_models=['BlackScholes'],)
+sig8 = 0.2*np.sqrt(1000)/1000
+table_smallDim_BS_GeoPut_ref8 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig8], dividends=[0.2**2/2 - sig8**2/2],
+    stock_models=['BlackScholes'],)
+sig9 = 0.2*np.sqrt(2000)/2000
+table_smallDim_BS_GeoPut_ref9 = _VerySmallDimensionTable(
+    payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
+    nb_stocks=[1], nb_dates=[10000],
+    volatilities=[sig9], dividends=[0.2**2/2 - sig9**2/2],
+    stock_models=['BlackScholes'],)
+# -- overview table
+table_GeoPut_payoffs_gt1 = _DimensionTable(
+    payoffs=['GeometricPut'], algos=algos,
+    stock_models=['BlackScholes', 'Heston', ],
+    nb_stocks=[5, 10, 20, 50, 100,],
+    nb_dates=[10, 10000],
+    dividends=[0.0,],
+    volatilities=[0.2,],
+    drift=(0.02,), use_payoff_as_input=(True, False))
 
+
+# BasketCall BS
+table_Dim_BS_BasktCallr0 = _DimensionTable(
+    payoffs=['BasketCall'], algos=('NLSM', 'RFQI', 'RLSM', 'DOS'),
+    drift=(0.0,), use_payoff_as_input=(True, False))
+table_Dim_BS_BasktCallr0_bf = _SmallDimensionTable(
+    payoffs=['BasketCall'], drift=(0.0,), use_payoff_as_input=(True, False))
+#  -- true price
+table_spots_Dim_BasktCallr0_ref = _DimensionTable(
+    drift=(0.0,), algos=["EOP"], payoffs=['BasketCall'])
+#  -- overview tables
+table_BasketCall_payoffsr0_gt = _DimensionTable(
+    payoffs=['BasketCall',], algos=algos,
+    stock_models=['BlackScholes',],
+    nb_stocks=[5, 10, 20, 50, 100, 500, 1000, 2000],
+    drift=(0.0,), use_payoff_as_input=(False,))
+table_BasketCall_payoffsr0_gt1 = _DimensionTable(
+    payoffs=['BasketCall',], algos=algos,
+    stock_models=['BlackScholes',],
+    nb_stocks=[5, 10, 20, 50, 100, 500, 1000, 2000],
+    drift=(0.0,), use_payoff_as_input=(True, False))
+
+
+# other payoffs HestonWithVar
+table_smallDim_HestonV_GeoPut = _VerySmallDimensionTable(
+    payoffs=['GeometricPut'],
+    algos=['NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS', ],
+    stock_models=['HestonWithVar',],
+    use_payoff_as_input=(True, False))
+table_GeoPut_HestonV_payoffs_gt = _DimensionTable(
+    payoffs=['GeometricPut'], algos=algos,
+    stock_models=['HestonWithVar', ],
+    nb_stocks=[5, 10, 20,],
+    dividends=[0.0,],
+    volatilities=[0.2,],
+    nb_dates=[10],
+    drift=(0.02,), use_payoff_as_input=(False,))
+table_GeoPut_HestonV_payoffs_gt1 = _DimensionTable(
+    payoffs=['GeometricPut'], algos=algos,
+    stock_models=['HestonWithVar', ],
+    nb_stocks=[5, 10, 20,],
+    dividends=[0.0,],
+    volatilities=[0.2,],
+    nb_dates=[10],
+    drift=(0.02,), use_payoff_as_input=(False,True))
+
+
+# many dates tables
 algos = ['NLSM', 'RFQI', 'RLSM', 'LSM', 'DOS']
-table_manyDates_BS_MaxCall1 = _VerySmallDimensionTable(
-    algos=algos, nb_stocks=[10, 50, ], nb_dates=[50, 100])
+table_manyDates_BS_MaxCallr0_1 = _VerySmallDimensionTable(
+    algos=algos, nb_stocks=[10, 50, ], nb_dates=[50, 100],
+    drift=(0.0,), use_payoff_as_input=(True, False))
+table_manyDates_BS_MaxCallr0_FQI = _VerySmallDimensionTable(
+    algos=["FQI"], nb_stocks=[10, 50, ], nb_dates=[50, 100],
+    drift=(0.0,), use_payoff_as_input=(True, False))
 algos_ = ['NLSM', 'RFQI', 'RLSM', 'DOS']
-table_manyDates_BS_MaxCall2 = _VerySmallDimensionTable(
-    algos=algos_, nb_stocks=[100, 500,], nb_dates=[50, 100])
-table_manyDates_BS_MaxCall3 = _VerySmallDimensionTable(
-    algos=["RFQI"], nb_stocks=[10, 50, 100, 500,], nb_dates=[50, 100],
-    hidden_size=[40, 80]
-)
-table_manyDates_BS_MaxCall_gt = _VerySmallDimensionTable(
-    algos=algos, nb_stocks=[10, 50, 100, 500,], nb_dates=[50, 100],
-    hidden_size=[20]
-)
+table_manyDates_BS_MaxCallr0_2 = _VerySmallDimensionTable(
+    algos=algos_, nb_stocks=[100, 500,], nb_dates=[50, 100],
+    drift=(0.0,), use_payoff_as_input=(True, False))
+table_manyDates_BS_MaxCallr0_ref = _VerySmallDimensionTable(
+    algos= ['EOP'], nb_stocks=[100, 500,], nb_dates=[50, 100],
+    drift=(0.0,), use_payoff_as_input=(False,))
+table_manyDates_BS_MaxCallr0_gt = _VerySmallDimensionTable(
+    algos=['NLSM', 'RFQI', 'RLSM', 'LSM', 'DOS', 'FQI', 'EOP'],
+    nb_stocks=[10, 50, 100, 500,], nb_dates=[10, 50, 100],
+    hidden_size=[20], ridge_coeff=[1, np.nan, None],
+    drift=(0.0,), use_payoff_as_input=(True,))
+table_manyDates_BS_MaxCallr0_gt1 = _VerySmallDimensionTable(
+    algos=['NLSM', 'RFQI', 'RLSM', 'LSM', 'DOS', 'FQI', 'EOP'],
+    nb_stocks=[10, 50, 100, 500,], nb_dates=[10, 50, 100],
+    hidden_size=[20], ridge_coeff=[1, np.nan, None],
+    drift=(0.0,), use_payoff_as_input=(True, False))
+# -- many dates tables, BS with dividend
+table_manyDates_BS_MaxCall_div_1 = _VerySmallDimensionTable(
+    algos = ['NLSM', 'RLSM', 'LSM', 'DOS'],
+    nb_stocks=[10, 50, ], nb_dates=[50, 100],
+    dividends=[0.1], drift=(0.05,), use_payoff_as_input=(True,))
+table_manyDates_BS_MaxCall_div_FQI = _VerySmallDimensionTable(
+    algos=["FQI", "RFQI"], nb_stocks=[10, 50, ], nb_dates=[50, 100],
+    dividends=[0.1], drift=(0.05,), use_payoff_as_input=(False,))
+table_manyDates_BS_MaxCall_div_2 = _VerySmallDimensionTable(
+    algos=['NLSM', 'RLSM', 'DOS'],
+    nb_stocks=[100, 500,], nb_dates=[50, 100],
+    dividends=[0.1], drift=(0.05,), use_payoff_as_input=(True, ))
+table_manyDates_BS_MaxCall_div_FQI_2 = _VerySmallDimensionTable(
+    algos=["RFQI"], nb_stocks=[100, 500, ], nb_dates=[50, 100],
+    dividends=[0.1], drift=(0.05,), use_payoff_as_input=(False,))
+table_manyDates_BS_MaxCall_div_gt1 = _VerySmallDimensionTable(
+    algos=['NLSM', 'RFQI', 'RLSM', 'LSM', 'DOS', 'FQI',],
+    nb_stocks=[10, 50, 100, 500,], nb_dates=[10, 50, 100],
+    hidden_size=[20], ridge_coeff=[1, np.nan, None],
+    dividends=[0.1], drift=(0.05,),
+    use_payoff_as_input=(True, False))
+
+
+
+# BS MinPut
+table_spots_Dim_BS_MinPut = _DimensionTable(
+    payoffs=["MinPut"],
+    spots=[80, 100, 120], drift=(0.02,), use_payoff_as_input=(True, False))
+table_spots_Dim_BS_MinPut_do = _DimensionTable(
+    payoffs=["MinPut"],
+    algos=['DOS',], drift=(0.02,), use_payoff_as_input=(True, False),
+    spots=[80, 100, 120])
+#   -- tables with basis functions
+table_spots_Dim_BS_MinPut_bf = _SmallDimensionTable(
+    payoffs=["MinPut"],
+    spots=[80, 100, 120], drift=(0.02,), use_payoff_as_input=(True, False))
+#   -- tables to generate output tables
+algos = ['NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS']
+table_spots_Dim_BS_MinPut_gt = _DimensionTable(
+    payoffs=["MinPut"],
+    spots=[80, 100, 120], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.02,), use_payoff_as_input=(False,))
+table_spots_Dim_BS_MinPut_gt1 = _DimensionTable(
+    payoffs=["MinPut"],
+    spots=[80, 100, 120], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.02,), use_payoff_as_input=(True, False,))
+
+
+# BS MaxCall with dividend
+table_Dim_BS_MaxCall_div = _DimensionTable(
+    payoffs=['MaxCall'], algos=('NLSM', 'RFQI', 'RLSM', 'DOS'),
+    dividends=[0.1],
+    drift=(0.05,), use_payoff_as_input=(True, False))
+table_Dim_BS_MaxCall_div_bf = _SmallDimensionTable(
+    dividends=[0.1],
+    payoffs=['MaxCall'], drift=(0.05,), use_payoff_as_input=(True, False))
+table_Dim_BS_MaxCall_div_gt = _DimensionTable(
+    payoffs=['MaxCall',], algos=algos, dividends=[0.1],
+    drift=(0.05,), use_payoff_as_input=(False,))
+table_Dim_BS_MaxCall_div_gt1 = _DimensionTable(
+    payoffs=['MaxCall',], algos=algos, dividends=[0.1],
+    drift=(0.05,), use_payoff_as_input=(True, False))
+
+
+# Heston MinPut
+table_spots_Dim_Heston_MinPut = _DimensionTable(
+    payoffs=["MinPut"], stock_models=['Heston',],
+    algos=('NLSM', 'RFQI', 'RLSM', 'DOS'),
+    spots=[100], drift=(0.02,), use_payoff_as_input=(True, False))
+#   -- tables with basis functions
+table_spots_Dim_Heston_MinPut_bf = _SmallDimensionTable(
+    payoffs=["MinPut"], stock_models=['Heston',],
+    spots=[100], drift=(0.02,), use_payoff_as_input=(True, False))
+#   -- tables to generate output tables
+algos = ['NLSM', 'RFQI', 'RLSM', 'LSM', 'FQI', 'DOS']
+table_spots_Dim_Heston_MinPut_gt = _DimensionTable(
+    payoffs=["MinPut"], stock_models=['Heston',],
+    spots=[100], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.02,), use_payoff_as_input=(False,))
+table_spots_Dim_Heston_MinPut_gt1 = _DimensionTable(
+    payoffs=["MinPut"], stock_models=['Heston',],
+    spots=[100], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.02,), use_payoff_as_input=(True, False,))
+
+
+# Heston MaxCall with dividend
+table_Dim_Heston_MaxCall_div = _DimensionTable(
+    payoffs=['MaxCall'], algos=('NLSM', 'RFQI', 'RLSM', 'DOS'),
+    dividends=[0.1], stock_models=['Heston',],
+    drift=(0.05,), use_payoff_as_input=(True, False))
+table_Dim_Heston_MaxCall_div_bf = _SmallDimensionTable(
+    dividends=[0.1], stock_models=['Heston',],
+    payoffs=['MaxCall'], drift=(0.05,), use_payoff_as_input=(True, False))
+table_Dim_Heston_MaxCall_div_gt1 = _DimensionTable(
+    stock_models=['Heston',],
+    payoffs=['MaxCall',], algos=algos, dividends=[0.1],
+    drift=(0.05,), use_payoff_as_input=(True, False))
+
+
+# HestonV MinPut
+table_spots_Dim_HestonV_MinPut = _DimensionTable(
+    payoffs=["MinPut"], stock_models=['HestonWithVar',],
+    algos=('NLSM', 'RFQI', 'RLSM', 'DOS'),
+    spots=[100], drift=(0.02,), use_payoff_as_input=(True, False))
+#   -- tables with basis functions
+table_spots_Dim_HestonV_MinPut_bf = _SmallDimensionTable(
+    payoffs=["MinPut"], stock_models=['HestonWithVar',], nb_stocks=(5, 10, 50,),
+    spots=[100], drift=(0.02,), use_payoff_as_input=(True, False))
+#   -- tables to generate output tables
+table_spots_Dim_HestonV_MinPut_gt1 = _DimensionTable(
+    payoffs=["MinPut"], stock_models=['HestonWithVar',],
+    spots=[100], algos=algos, ridge_coeff=[1, np.nan, None],
+    drift=(0.02,), use_payoff_as_input=(True, False,))
+
+
+# HestonV MaxCall with dividend
+table_Dim_HestonV_MaxCall_div = _DimensionTable(
+    payoffs=['MaxCall'], algos=('NLSM', 'RFQI', 'RLSM', 'DOS'),
+    dividends=[0.1], stock_models=['HestonWithVar',],
+    drift=(0.05,), use_payoff_as_input=(True, False))
+table_Dim_HestonV_MaxCall_div_bf = _SmallDimensionTable(
+    dividends=[0.1], stock_models=['HestonWithVar',], nb_stocks=(5, 10, 50,),
+    payoffs=['MaxCall'], drift=(0.05,), use_payoff_as_input=(True, False))
+table_Dim_HestonV_MaxCall_div_gt1 = _DimensionTable(
+    stock_models=['HestonWithVar',],
+    payoffs=['MaxCall',], algos=algos, dividends=[0.1],
+    drift=(0.05,), use_payoff_as_input=(True, False))
+
 
 
 
@@ -170,10 +516,7 @@ Test for the FBM case of DOS
 # RNNLeastSquares
 hurst = list(np.linspace(0, 1, 21))
 hurst[0] = 0.01
-hurst[-1] = 0.999
-# hurst = hurst[0:3]
-# hurst = hurst[-2:]
-# hurst = [0.5]
+
 table_RNN_DOS = _DefaultConfig(
     payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
     hurst=hurst, train_ITM_only=[False],
@@ -195,7 +538,6 @@ table_RNN_DOS_PD = _DefaultConfig(
     hidden_size=(20,), maturities=[1], nb_paths=[20000],
     nb_dates=[100],
     algos=[
-        'NLSM',
         'DOS',
     ], nb_runs=10,
     representations=['TablePriceDuration']
@@ -208,6 +550,7 @@ table_RNN_DOS_bf = _DefaultConfig(
     nb_dates=[100],
     algos=[
         'LSM',
+        'FQI'
     ], nb_runs=10,
     representations=['TablePriceDuration']
 )
@@ -307,16 +650,16 @@ table_highdim_hurst_RNN0 = _DefaultConfig(
 hurst1 = [0.05]
 table_highdim_hurst = _DefaultConfig(
     payoffs=['Max', 'Mean'],
-    nb_stocks=[5, 10, 50, 100,],
+    nb_stocks=[5, 10, ],
     spots=[0], nb_epochs=[30],
     hurst=hurst1, train_ITM_only=[False],
     stock_models=['FractionalBrownianMotion'],
     hidden_size=(20,), maturities=[1], nb_paths=[20000],
     nb_dates=[100],
+    use_payoff_as_input=[True],
     algos=[
         'DOS',
         'RLSM',
-        'RFQI',
     ], nb_runs=10,
     representations=['TablePriceDuration']
 )
@@ -326,11 +669,12 @@ table_highdim_hurst_PD = _DefaultConfig(
     spots=[0], nb_epochs=[30],
     hurst=hurst1, train_ITM_only=[False],
     use_path=[True],
+    use_payoff_as_input=[True],
     stock_models=['FractionalBrownianMotion'],
     hidden_size=(20,), maturities=[1], nb_paths=[20000],
     nb_dates=[100],
     algos=[
-        'DOS',
+        'pathDOS',
     ], nb_runs=10,
     representations=['TablePriceDuration']
 )
@@ -340,31 +684,35 @@ for a in [0.0008,]:
         factors += [[a,b]]
 table_highdim_hurst_RNN = _DefaultConfig(
     payoffs=['Max', 'Mean'],
-    nb_stocks=[5, 10,],
+    nb_stocks=[5, 10,
+               # 50, 100,
+               ],
     spots=[0], nb_epochs=[30],
     hurst=hurst1, train_ITM_only=[False],
     factors=factors,
     stock_models=['FractionalBrownianMotion'],
     hidden_size=(20,), maturities=[1], nb_paths=[20000],
     nb_dates=[100],
+    use_payoff_as_input=[True],
     algos=[
         'RRLSM',
     ], nb_runs=10,
     representations=['TablePriceDuration']
 )
 
-factors1 = [(1.,1.,1.), [0.0008,0.11]]
+factors1 = [str((1.,1.,1.))] + [str(x) for x in factors+factors0]
 table_highdim_hurst_gt = _DefaultConfig(
     payoffs=['Identity', 'Max', 'Mean'],
     nb_stocks=[1, 5, 10, ],
     spots=[0], nb_epochs=[30],
     hurst=[0.05,], train_ITM_only=[False],
-    stock_models=['FractionalBrownianMotion'],
+    stock_models=['FractionalBrownianMotion',],
     hidden_size=(20,), maturities=[1], nb_paths=[20000],
     nb_dates=[100], factors=factors1,
+    use_payoff_as_input=[True, False],
     algos=[
         'DOS',
-        'pathDO',
+        'pathDOS',
         'RLSM',
         'RRLSM',
     ], nb_runs=10,
@@ -393,18 +741,84 @@ table_OtherBasis_MaxCall = _SmallDimensionTable(
 )
 
 
+'''
+computing greeks and prices
+'''
+algos = ["NLSM", "DOS", "RLSMSoftplus", "RFQI", "RFQISoftplus"]
+test_table_greeks_1 = _DimensionTable(
+    nb_runs=1, nb_epochs=[20],
+    payoffs=["MinPut"], volatilities=[0.2], drift=[0.06],
+    strikes=[36,], spots=[40], nb_dates=[10],
+    hidden_size=[100], use_payoff_as_input=(True, False,), train_ITM_only=[True],
+    algos=algos, nb_stocks=[1], nb_paths=[100000])
+
+algos = ["FQI", "RFQI"] + \
+        ["RLSMSoftplus","RLSMElu", "RLSMSilu","RLSMGelu","RLSMTanh"]+ \
+        ["RLSM", "LSM", "NLSM", "DOS"]
+table_greeks_1 = _DimensionTable(
+    nb_runs=10, nb_epochs=[10],
+    payoffs=["MinPut"], volatilities=[0.2], drift=[0.06],
+    strikes=[36,40, 44], spots=[40], nb_dates=[10],
+    hidden_size=[10], use_payoff_as_input=(False,), train_ITM_only=[True],
+    algos=algos, nb_stocks=[1], nb_paths=[100000])
+algos = ["NLSM", "DOS"]
+table_greeks_1_2 = _DimensionTable(
+    nb_runs=10, nb_epochs=[5, 10, 20],
+    payoffs=["MinPut"], volatilities=[0.2], drift=[0.06],
+    strikes=[36,40,44], spots=[40], nb_dates=[10],
+    hidden_size=[10, 100], use_payoff_as_input=(True,), train_ITM_only=[True],
+    algos=algos, nb_stocks=[1], nb_paths=[100000])
+
+table_greeks_binomial = _DimensionTable(
+    nb_runs=1, algos=["B"],
+    payoffs=["Put1Dim"], volatilities=[0.2], drift=[0.06],
+    strikes=[36,40,44], spots=[40], nb_dates=[10000, 50000],
+    nb_stocks=[1])
 
 
 
+
+# ==============================================================================
 test_table = _SmallDimensionTable(
     spots=[10], strikes=[10],
     algos=[
         'NLSM', 'LSM', 'DOS', 'FQI', 'RFQI', 'RLSM',
-        "LSMLaguerre", "FQILaguerre", "LSMRidge", "RLSMRidge",
-        "RRLSM", "RRFQI", "LSPI",
-
+        "LSMLaguerre", "FQILaguerre", "LSMRidge", "RLSMRidge", "RLSMTanh",
+        "FQIRidge", "RFQIRidge",
+        "RRLSM", "RRLSMmix", "RFQITanh", "RRFQI",
+        "LSPI",
+        'FQIDeg1', 'LSMDeg1',
     ],
     nb_stocks=(5,), nb_dates=(5,), nb_paths=(100,),
-    nb_runs=2, factors=((0.001,0.001,0.001),),
+    use_payoff_as_input=(True, False),
+    nb_runs=1, factors=((0.001,0.001,0.001),),
     representations=['TablePriceDuration'],
 )
+
+
+test_table2 = _SmallDimensionTable(
+    spots=[10], strikes=[10],
+    algos=[
+        'NLSM', 'LSM', 'DOS', 'FQI', 'RFQI', 'RLSM',
+        "LSMLaguerre", "FQILaguerre", "LSMRidge", "RLSMRidge", "RLSMTanh",
+        "RRLSM", "RRLSMmix", "RFQITanh", "RRFQI",
+        "LSPI",
+        'FQIDeg1', 'LSMDeg1',
+        'pathDOS'
+    ],
+    stock_models=["Heston", "RoughHeston",
+                  "HestonWithVar", "RoughHestonWithVar"],
+    hurst=[0.25],
+    nb_stocks=(5,), nb_dates=(5,), nb_paths=(100,),
+    use_payoff_as_input=(True, False),
+    nb_runs=1, factors=((0.001,0.001,0.001),),
+    representations=['TablePriceDuration'],
+)
+
+
+
+
+
+
+
+

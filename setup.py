@@ -9,7 +9,7 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name="optimal_stopping",
-    version="0.0.1",
+    version="2.0.0",
     author="C. Herrera, F. Krach, P. Ruyssen, J. Teichmann",
     author_email="calypso.herrera@math.ethz.ch, florian.krach@me.com",
     description="Code used to run experiments for paper 'Optimal Stopping via "

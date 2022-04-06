@@ -19,14 +19,16 @@ class LeastSquaresPricer(backward_induction_pricer.AmericanOptionPricer):
   """
 
   def __init__(self, model, payoff, nb_epochs=None, nb_batches=None,
-               train_ITM_only=True):
+               train_ITM_only=True, use_payoff_as_input=False):
 
     #regression class:  defines the regression used for the contination value.
-    self.regression = regression.LeastSquares(model.nb_stocks)
-    super().__init__(model, payoff, train_ITM_only=train_ITM_only)
+    super().__init__(model, payoff, train_ITM_only=train_ITM_only,
+                     use_payoff_as_input=use_payoff_as_input)
+    self.regression = regression.LeastSquares(
+      model.nb_stocks*(1+self.use_var)+self.use_payoff_as_input*1)
 
-  def calculate_continuation_value(self, values, immediate_exercise_value,
-                   stock_paths_at_timestep):
+  def calculate_continuation_value(
+          self, values, immediate_exercise_value, stock_paths_at_timestep):
     """See base class."""
     if self.train_ITM_only:
       in_the_money = np.where(immediate_exercise_value[:self.split] > 0)
@@ -42,19 +44,32 @@ class LeastSquaresPricer(backward_induction_pricer.AmericanOptionPricer):
     return return_values
 
 
+class LeastSquarePricerDeg1(LeastSquaresPricer):
+  """ Only polynomials of degree one are used for the least square regression."""
+  def __init__(self, model, payoff, nb_epochs=None, nb_batches=None,
+               train_ITM_only=True, use_payoff_as_input=False):
+    super().__init__(model, payoff, train_ITM_only=train_ITM_only,
+                     use_payoff_as_input=use_payoff_as_input)
+    self.regression = regression.LeastSquaresDeg1(
+      model.nb_stocks*(1+self.use_var)+self.use_payoff_as_input*1)
+
+
 class LeastSquarePricerLaguerre(LeastSquaresPricer):
   """Least Square Monte Carlo using weighted Laguerre basis functions."""
   def __init__(self, model, payoff, nb_epochs=None, nb_batches=None,
-               train_ITM_only=True):
-    super().__init__(model, payoff, train_ITM_only=train_ITM_only)
+               train_ITM_only=True, use_payoff_as_input=False):
+    super().__init__(model, payoff, train_ITM_only=train_ITM_only,
+                     use_payoff_as_input=use_payoff_as_input)
     self.regression = regression.LeastSquaresLaguerre(
-      model.nb_stocks)
+      model.nb_stocks*(1+self.use_var)+self.use_payoff_as_input*1)
 
 
 class LeastSquarePricerRidge(LeastSquaresPricer):
   """Least Square Monte Carlo using ridge regression."""
   def __init__(self, model, payoff, nb_epochs=None, nb_batches=None,
-               train_ITM_only=True, ridge_coeff=1.,):
-    super().__init__(model, payoff, train_ITM_only=train_ITM_only)
+               train_ITM_only=True, ridge_coeff=1., use_payoff_as_input=False):
+    super().__init__(model, payoff, train_ITM_only=train_ITM_only,
+                     use_payoff_as_input=use_payoff_as_input)
     self.regression = regression.LeastSquaresRidge(
-      model.nb_stocks, ridge_coeff=ridge_coeff)
+      model.nb_stocks*(1+self.use_var)+self.use_payoff_as_input*1,
+      ridge_coeff=ridge_coeff)

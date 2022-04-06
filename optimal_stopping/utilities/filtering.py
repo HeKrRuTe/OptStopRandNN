@@ -27,7 +27,8 @@ FILTERS = [
     ("hurst", "hurst"),
     ("hidden_size", "hidden_size"),
     ("factors", "factors"),
-    ("ridge_coeff", "ridge_coeff")
+    ("ridge_coeff", "ridge_coeff"),
+    ("use_payoff_as_input", "use_payoff_as_input"),
 ]
 
 FLAGS = flags.FLAGS

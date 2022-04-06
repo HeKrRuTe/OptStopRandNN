@@ -28,20 +28,26 @@ class DeepOptimalStopping(backward_induction_pricer.AmericanOptionPricer):
   """
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               hidden_size=10, use_path=False):
+               hidden_size=10, use_path=False, use_payoff_as_input=False):
     del nb_batches
-    super().__init__(model, payoff, use_path=use_path)
+    super().__init__(model, payoff, use_path=use_path,
+                     use_payoff_as_input=use_payoff_as_input)
     if self.use_path:
-      state_size = model.nb_stocks * (model.nb_dates+1)
+      state_size = (model.nb_stocks*(1+self.use_var) +
+                    self.use_payoff_as_input*1) * \
+                   (model.nb_dates+1)
     else:
-      state_size = model.nb_stocks
+      state_size = model.nb_stocks*(1+self.use_var)+self.use_payoff_as_input*1
     self.neural_stopping = OptimalStoppingOptimization(
       state_size, model.nb_paths, hidden_size=hidden_size,
       nb_iters=nb_epochs)
 
   def stop(self, stock_values, immediate_exercise_values,
-           discounted_next_values, h=None):
+           discounted_next_values, h=None, var_paths=None,
+           train=True, return_continuation_values=False):
     """ see base class """
+    if self.use_var:
+      stock_values = np.concatenate([stock_values, var_paths], axis=1)
     if self.use_path:
       # shape [paths, stocks, dates up to now]
       stock_values = np.flip(stock_values, axis=2)
@@ -51,13 +57,16 @@ class DeepOptimalStopping(backward_induction_pricer.AmericanOptionPricer):
           (stock_values.shape[0], stock_values.shape[1],
            self.model.nb_dates + 1 - stock_values.shape[2]))], axis=-1)
       stock_values = stock_values.reshape((stock_values.shape[0], -1))
-    self.neural_stopping.train_network(
-      stock_values[:self.split],
-      immediate_exercise_values.reshape(-1, 1)[:self.split],
-      discounted_next_values[:self.split])
+    if train:
+      self.neural_stopping.train_network(
+        stock_values[:self.split],
+        immediate_exercise_values.reshape(-1, 1)[:self.split],
+        discounted_next_values[:self.split])
 
     inputs = stock_values
     stopping_rule = self.neural_stopping.evaluate_network(inputs)
+    if return_continuation_values:
+      return stopping_rule, None
     return stopping_rule
 
 
