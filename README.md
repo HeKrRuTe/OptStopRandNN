@@ -246,12 +246,12 @@ The greeks theta, rho, vega are always computed via forward FD method, since the
 
 Via (central) [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference):
 ```sh
-python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=0.00000001 --fd_freeze_exe_boundary=True
+python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=1e-9 --fd_freeze_exe_boundary=True
 ```
 
 Via regression method (see the paper [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)):
 ```sh
-python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="regression" --eps=5 --poly_deg=9
+python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="regression" --reg_eps=5 --eps=1e-9 --poly_deg=9 --fd_freeze_exe_boundary=True
 ```
 
 For the binomial model:

@@ -101,6 +101,16 @@ class BinomialPricer:
     theta = (price_p - price)/eps
     return price, theta
 
+  def get_time_derivative2(self, eps, price=None):
+    maturity_old = copy.copy(self.model.maturity)
+    self.model.maturity = maturity_old - eps
+    price_p, _ = self.price()
+    self.model.maturity = maturity_old + eps
+    price_m, _ = self.price()
+    self.model.maturity = maturity_old
+    theta = (price_p - price_m)/(2*eps)
+    return price, theta
+
   def get_rate_derivative(self, eps, price=None):
     rate_old = copy.copy(self.model.rate)
     if price is None:
@@ -111,6 +121,16 @@ class BinomialPricer:
     rho = (price_p - price)/eps
     return price, rho
 
+  def get_rate_derivative2(self, eps, price=None):
+    rate_old = copy.copy(self.model.rate)
+    self.model.rate = rate_old + eps
+    price_p, _ = self.price()
+    self.model.rate = rate_old - eps
+    price_m, _ = self.price()
+    self.model.rate = rate_old
+    rho = (price_p - price_m)/(2*eps)
+    return price, rho
+
   def get_vola_derivative(self, eps, price=None):
     vola_old = copy.copy(self.model.volatility)
     if price is None:
@@ -119,6 +139,16 @@ class BinomialPricer:
     price_p, _ = self.price()
     self.model.volatility = vola_old
     vega = (price_p - price)/eps
+    return price, vega
+
+  def get_vola_derivative2(self, eps, price=None):
+    vola_old = copy.copy(self.model.volatility)
+    self.model.volatility = vola_old + eps
+    price_p, _ = self.price()
+    self.model.volatility = vola_old - eps
+    price_m, _ = self.price()
+    self.model.volatility = vola_old
+    vega = (price_p - price_m)/(2*eps)
     return price, vega
 
   def compute_gamma_via_PDE(self, price, delta, theta):
@@ -155,9 +185,12 @@ class BinomialPricer:
           spot=orig_spot-3*eps/2, eps=eps/2, compute_price=False)
     else:
       raise NotImplementedError
-    _, theta = self.get_time_derivative(eps=eps, price=price)
-    _, rho = self.get_rate_derivative(eps=eps, price=price)
-    _, vega = self.get_vola_derivative(eps=eps, price=price)
+    # _, theta = self.get_time_derivative(eps=eps, price=price)
+    # _, rho = self.get_rate_derivative(eps=eps, price=price)
+    # _, vega = self.get_vola_derivative(eps=eps, price=price)
+    _, theta = self.get_time_derivative2(eps=eps/2, price=price)
+    _, rho = self.get_rate_derivative2(eps=eps/2, price=price)
+    _, vega = self.get_vola_derivative2(eps=eps/2, price=price)
     if not fd_compute_gamma_via_PDE:
       gamma = (delta1 - delta2) / eps
     else:

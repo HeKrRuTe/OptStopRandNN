@@ -82,7 +82,9 @@ flags.DEFINE_bool("compute_greeks", False,
                   "Whether to compute greeks (not available for all settings)")
 flags.DEFINE_string("greeks_method", "central",
                     "one of: central, forward, backward, regression")
-flags.DEFINE_float("eps", 0.001,
+flags.DEFINE_float("eps", 1e-9,
+                   "the epsilon for the finite difference method or regression")
+flags.DEFINE_float("reg_eps", 5,
                    "the epsilon for the finite difference method or regression")
 flags.DEFINE_integer("poly_deg", 2,
                      "the degree for the polynomial regression")
@@ -111,6 +113,7 @@ _PAYOFFS = {
     "Mean": payoff.Mean,
     "MinPut": payoff.MinPut,
     "Put1Dim": payoff.Put1Dim,
+    "Call1Dim": payoff.Call1Dim,
 }
 
 _STOCK_MODELS = stock_model.STOCK_MODELS
@@ -206,7 +209,8 @@ def _run_algos():
             greeks_method=FLAGS.greeks_method,
             eps=FLAGS.eps, poly_deg=FLAGS.poly_deg,
             fd_freeze_exe_boundary=FLAGS.fd_freeze_exe_boundary,
-            fd_compute_gamma_via_PDE=FLAGS.fd_compute_gamma_via_PDE))
+            fd_compute_gamma_via_PDE=FLAGS.fd_compute_gamma_via_PDE,
+            reg_eps=FLAGS.reg_eps))
 
   print(f"Running {len(delayed_jobs)} tasks using "
         f"{FLAGS.nb_jobs}/{NUM_PROCESSORS} CPUs...")
@@ -236,7 +240,7 @@ def _run_algo(
         fail_on_error=False,
         compute_greeks=False, greeks_method=None, eps=None,
         poly_deg=None, fd_freeze_exe_boundary=True,
-        fd_compute_gamma_via_PDE=True):
+        fd_compute_gamma_via_PDE=True, reg_eps=None):
   """
   This functions runs one algo for option pricing. It is called by _run_algos()
   which is called in main(). Below the inputs are listed which have to be
@@ -300,6 +304,8 @@ def _run_algo(
             based greeks computation
    fd_freeze_exe_boundary (bool): whether to use same exersice boundary or not
    fd_compute_gamma_via_PDE (bool): whether to compute gamma via the PDE
+   reg_eps (float): the epsilon to use in the regression method to compute
+            greeks
   """
   print(algo, spot, volatility, maturity, nb_paths, '... ', end="")
   payoff_ = _PAYOFFS[payoff](strike)
@@ -372,6 +378,7 @@ def _run_algo(
     else:
         price, gen_time, delta, gamma, theta, rho, vega = pricer.price_and_greeks(
             eps=eps, greeks_method=greeks_method, poly_deg=poly_deg,
+            reg_eps=reg_eps,
             fd_freeze_exe_boundary=fd_freeze_exe_boundary,
             fd_compute_gamma_via_PDE=fd_compute_gamma_via_PDE)
     duration = time.time() - t_begin

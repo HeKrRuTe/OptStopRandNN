@@ -45,6 +45,18 @@ class Put1Dim(Payoff):
     return np.maximum(0, self.strike - X)
 
 
+class Call1Dim(Payoff):
+  def __init__(self, strike):
+    self.strike =  strike
+
+  def __call__(self, X, strike=None):
+    assert strike is None or strike == self.strike
+    return self.eval(X)
+
+  def eval(self, X):
+    return np.maximum(0, X - self.strike)
+
+
 class MinPut(Payoff):
   def __init__(self, strike):
     self.strike =  strike

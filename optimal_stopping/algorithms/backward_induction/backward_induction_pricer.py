@@ -394,6 +394,31 @@ class AmericanOptionPricer:
 
     return price, rho, time_path_gen
 
+  def get_rate_derivative2(self, eps, dW, fd_freeze_exe_boundary=False):
+    t1 = time.time()
+    stock_paths, var_paths = self.model.generate_paths(dW=dW)
+    disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
+                              self.model.nb_dates)
+    rate_old = copy.copy(self.model.rate)
+    self.model.rate += eps
+    stock_paths_p, var_paths_p = self.model.generate_paths(dW=dW)
+    disc_factor_p = np.math.exp((-self.model.rate) * self.model.maturity /
+                                self.model.nb_dates)
+    self.model.rate = rate_old - eps
+    stock_paths_m, var_paths_m = self.model.generate_paths(dW=dW)
+    disc_factor_m = np.math.exp((-self.model.rate) * self.model.maturity /
+                                self.model.nb_dates)
+    self.model.rate = rate_old
+    time_path_gen = time.time() - t1
+
+    price, rho = self.get_central_derivative(
+      stock_paths, var_paths, disc_factor,
+      stock_paths_p, var_paths_p, disc_factor_p,
+      stock_paths_m, var_paths_m, disc_factor_m,
+      eps, fd_freeze_exe_boundary)
+
+    return price, rho, time_path_gen
+
   def get_vola_derivative(self, eps, dW):
     t1 = time.time()
     stock_paths, var_paths = self.model.generate_paths(dW=dW)
@@ -409,6 +434,31 @@ class AmericanOptionPricer:
     price, vega = self.get_forward_derivative(
       eps, stock_paths, var_paths, disc_factor,
       stock_paths_p, var_paths_p, disc_factor_p)
+
+    return price, vega, time_path_gen
+
+  def get_vola_derivative2(self, eps, dW, fd_freeze_exe_boundary=False):
+    t1 = time.time()
+    stock_paths, var_paths = self.model.generate_paths(dW=dW)
+    disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
+                              self.model.nb_dates)
+    vola_old = copy.copy(self.model.volatility)
+    self.model.volatility += eps
+    stock_paths_p, var_paths_p = self.model.generate_paths(dW=dW)
+    disc_factor_p = np.math.exp((-self.model.rate) * self.model.maturity /
+                                self.model.nb_dates)
+    self.model.volatility = vola_old - eps
+    stock_paths_m, var_paths_m = self.model.generate_paths(dW=dW)
+    disc_factor_m = np.math.exp((-self.model.rate) * self.model.maturity /
+                                self.model.nb_dates)
+    self.model.volatility = vola_old
+    time_path_gen = time.time() - t1
+
+    price, vega = self.get_central_derivative(
+      stock_paths, var_paths, disc_factor,
+      stock_paths_p, var_paths_p, disc_factor_p,
+      stock_paths_m, var_paths_m, disc_factor_m,
+      eps, fd_freeze_exe_boundary)
 
     return price, vega, time_path_gen
 
@@ -498,7 +548,8 @@ class AmericanOptionPricer:
     t1 = time.time()
     self.model.spot = spot
     X0 = np.random.normal(loc=spot, scale=eps,
-                          size=(self.model.nb_paths,self.model.nb_stocks))
+                          size=(self.model.nb_paths,1))
+    X0 = np.repeat(X0, repeats=self.model.nb_stocks, axis=1)
     stock_paths, var_paths = self.model.generate_paths(dW=dW, X0=X0)
     time_path_gen = time.time() - t1
 
@@ -548,7 +599,7 @@ class AmericanOptionPricer:
     values *= disc_factor
 
     # fit regression to values
-    b, b_d, b_g = utilities.get_poly_basis_and_derivatives(X=X0, d=d)
+    b, b_d, b_g = utilities.get_poly_basis_and_derivatives(X=X0[:, :1], d=d)
     b_val, b_d_val, b_g_val = utilities.get_poly_basis_and_derivatives(
       X=np.array([[spot]]), d=d)
     linreg = LinearRegression(fit_intercept=False)
@@ -562,7 +613,7 @@ class AmericanOptionPricer:
 
   def price_and_greeks(
           self, eps=0.01, greeks_method="central", fd_freeze_exe_boundary=True,
-          poly_deg=2, fd_compute_gamma_via_PDE=True):
+          poly_deg=2, reg_eps=5, fd_compute_gamma_via_PDE=True):
     """
     Computes the price of an American Option using backward recusrion.
     Additionally computes the Delta, Gamma, Theta Greeks via finite difference
@@ -608,12 +659,18 @@ class AmericanOptionPricer:
           fd_freeze_exe_boundary=fd_freeze_exe_boundary)
     elif greeks_method == "regression":
       price, delta, gamma, t1 = self.get_regression(
-        spot=orig_spot, eps=eps, d=poly_deg, dW=dW)
+        spot=orig_spot, eps=reg_eps, d=poly_deg, dW=dW)
     else:
       raise NotImplementedError
-    _, theta, t4 = self.get_time_derivative(eps=1e-14, dW=dW)
-    _, rho, t5 = self.get_rate_derivative(eps=1e-14, dW=dW)
-    _, vega, t6 = self.get_vola_derivative(eps=1e-14, dW=dW)
+    # _, theta, t4 = self.get_time_derivative(eps=1e-14, dW=dW)
+    # _, rho, t5 = self.get_rate_derivative(eps=1e-14, dW=dW)
+    # _, vega, t6 = self.get_vola_derivative(eps=1e-14, dW=dW)
+    _, theta, t4 = self.get_time_derivative2(
+      eps=eps/2, dW=dW, fd_freeze_exe_boundary=fd_freeze_exe_boundary)
+    _, rho, t5 = self.get_rate_derivative2(
+      eps=eps/2, dW=dW, fd_freeze_exe_boundary=fd_freeze_exe_boundary)
+    _, vega, t6 = self.get_vola_derivative2(
+      eps=eps/2, dW=dW, fd_freeze_exe_boundary=fd_freeze_exe_boundary)
     if greeks_method == "regression":
       return price, t+t1+t4+t5+t6, delta, gamma, theta, rho, vega
     if fd_compute_gamma_via_PDE:

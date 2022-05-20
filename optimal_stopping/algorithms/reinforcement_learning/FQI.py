@@ -323,7 +323,8 @@ class FQIFast(reinforcement_learning_price.FQI_RL):
         t1 = time.time()
         self.model.spot = spot
         X0 = np.random.normal(loc=spot, scale=eps,
-                              size=(self.model.nb_paths,self.model.nb_stocks))
+                              size=(self.model.nb_paths,1))
+        X0 = np.repeat(X0, repeats=self.model.nb_stocks, axis=1)
         stock_paths, var_paths = self.model.generate_paths(dW=dW, X0=X0)
         time_path_gen = time.time() - t1
 
@@ -365,7 +366,7 @@ class FQIFast(reinforcement_learning_price.FQI_RL):
         prices = payoffs.reshape(-1)[_ex_dates] * discount_factor**ex_dates
 
         # fit regression to values
-        b, b_d, b_g = utilities.get_poly_basis_and_derivatives(X=X0, d=d)
+        b, b_d, b_g = utilities.get_poly_basis_and_derivatives(X=X0[:, :1], d=d)
         b_val, b_d_val, b_g_val = utilities.get_poly_basis_and_derivatives(
             X=np.array([[spot]]), d=d)
         linreg = LinearRegression(fit_intercept=False)
@@ -438,6 +439,13 @@ class FQIFastRidge(FQIFast):
         self.reg_model.fit(X=np.eye(nb_base_fcts), y=np.zeros(nb_base_fcts))
 
     def predict_reg(self, X):
+        # if len(X.shape) == 3:
+        #     return np.array([self.reg_model.predict(X[i]) for i in range(X.shape[0])])
+        # elif len(X.shape) == 2:
+        #     return self.reg_model.predict(X)
+        # else:
+        #     raise ValueError
+
         shape = X.shape
         assert len(shape) > 1
         X = X.reshape(-1, shape[-1])
