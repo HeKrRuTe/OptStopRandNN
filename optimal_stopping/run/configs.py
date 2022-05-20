@@ -763,10 +763,10 @@ table_greeks_1 = _DimensionTable(
     algos=algos, nb_stocks=[1], nb_paths=[100000])
 algos = ["NLSM", "DOS"]
 table_greeks_1_2 = _DimensionTable(
-    nb_runs=10, nb_epochs=[5, 10, 20],
+    nb_runs=10, nb_epochs=[10],
     payoffs=["MinPut"], volatilities=[0.2], drift=[0.06],
     strikes=[36,40,44], spots=[40], nb_dates=[10],
-    hidden_size=[10, 100], use_payoff_as_input=(True,), train_ITM_only=[True],
+    hidden_size=[10,], use_payoff_as_input=(True,), train_ITM_only=[True],
     algos=algos, nb_stocks=[1], nb_paths=[100000])
 
 table_greeks_binomial = _DimensionTable(

@@ -187,7 +187,7 @@ if __name__ == '__main__':
                  "strike": strike,
                  "greeks_method": method,
                  "use_payoff_as_input": True,
-                 "nb_epochs": 5,
+                 "nb_epochs": 10,
                  "model": "BlackScholes",},
             ]
 

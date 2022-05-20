@@ -232,15 +232,15 @@ python optimal_stopping/run/write_figures.py --configs=table_OtherBasis_MaxCall;
 
 ### Compute Greeks (and price):
 Currently, the Greeks: delta, gamma, theta, rho and vega are supported.
-For the computation of delta and gamma, there are multiple computation possibilities, 
+For the computation of delta and gamma, there are multiple computation possibilities,
 since the computation of gamma (as 2nd derivative) tends to be unstable.
 The different possibilities are:
-  - central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and the respective 2nd order FD method for gamma. this is unstable for gamma (didn't produce good results in any of our tests) and is therefore not recommended.
-  - central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and computation of gamma via the Black-Scholes PDE. This gives good results, if theta is computed well (which is the case for all methods except NLSM and DOS). This method is currently restricted to the case of a underlying Black-Scholes model.
-  - both of the above methods can be computed either with or without freezing the execution boundary. We recommend to use *fd_freeze_exe_boundary=True*, since it stabilizes the results. Moreover, the epsilon for the FD method can be chosen (recommended *eps=1e-9*).
-  - the regression based method (see the "naive method" (Section 3.1) in [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)). This method is very stable. Here epsilon (the standard deviation of the distortion term) and the degree of the polynomial basis for regression have to be chosen (recommended *eps=5*, *poly_deg=9*).
+- central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and the respective 2nd order FD method for gamma. this is unstable for gamma (didn't produce good results in any of our tests) and is therefore not recommended.
+- central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and computation of gamma via the Black-Scholes PDE. This gives good results, if theta is computed well (which is the case for all methods except NLSM and DOS). This method is currently restricted to the case of a underlying Black-Scholes model.
+- both of the above methods can be computed either with or without freezing the execution boundary. We recommend to use *fd_freeze_exe_boundary=True*, since it stabilizes the results. Moreover, the epsilon for the FD method can be chosen (recommended *eps=1e-9*).
+- the regression based method (see the "naive method" (Section 3.1) in [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)). This method is very stable. Here epsilon (the standard deviation of the distortion term) and the degree of the polynomial basis for regression have to be chosen (recommended *eps=5*, *poly_deg=9*).
 
-The greeks theta, rho, vega are always computed via forward FD method, since there are no stability issues (except for NLSM and DOS). Epsilon is pre-set to 1e-14, except for the binomial model, where too small epsilon values lead to instabilities (here the epsilon is controlled with *eps*, together with the epsilon for the FD method for delta and gamma). For the binomial model, we recommend *eps=1e-9*.
+The greeks theta, rho, vega are always computed via central FD method, since there are no stability issues. Also here, the epsilon is controlled with *eps*, together with the epsilon for the FD method for delta and gamma. For the binomial model, we recommend *eps=1e-9*.
 
 **Generate the greeks table of the paper:**
 
