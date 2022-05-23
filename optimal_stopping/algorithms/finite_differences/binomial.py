@@ -3,15 +3,11 @@ from math import exp, sqrt
 import numpy as np
 import tqdm
 import copy
+import optimal_stopping.payoffs.payoff as po
 
 import optimal_stopping.algorithms.utils.utilities as utilities
 
 
-
-
-def put(spot, strike):
-  """Returns put for given spot and strike."""
-  return max(strike-spot, 0)
 
 class BinomialPricer:
   def __init__(self, model, payoff, **kwargs):
@@ -24,15 +20,25 @@ class BinomialPricer:
     vol = self.model.volatility
     nb_dates = self.model.nb_dates
     rate = self.model.rate
-    drift = self.model.drift
-
+    nb_stocks = self.model.nb_stocks
     payoff_fct = self.payoff
+    dividend = self.model.dividend
+
+    if nb_stocks > 1 and isinstance(payoff_fct, po.Put1Dim):
+      vol_hat = vol/np.sqrt(nb_stocks)
+      dividend_hat = dividend + vol**2/2 - vol_hat**2/2
+    elif nb_stocks == 1:
+      vol_hat = vol
+      dividend_hat = dividend
+    else:
+      raise ValueError("Binomial Pricer is not implemented for nb_stocks>1 if "
+                       "the payoff is not Put")
 
     deltaT = maturity / nb_dates
     discount_factor = exp(-rate * deltaT)
-    up = exp(vol * sqrt(deltaT))
+    up = exp(vol_hat * sqrt(deltaT))
     down = 1 / up
-    proba_up = (exp(drift * deltaT) - down) / (up - down)
+    proba_up = (exp((rate - dividend_hat) * deltaT) - down) / (up - down)
     proba_down = 1 - proba_up
     steps = range(nb_dates)
     #  ---- OLD (SLOW) VERSION ----
@@ -153,9 +159,23 @@ class BinomialPricer:
 
   def compute_gamma_via_PDE(self, price, delta, theta):
     if self.model.name == "BlackScholes":
+      vol = self.model.volatility
+      nb_stocks = self.model.nb_stocks
+      payoff_fct = self.payoff
+      dividend = self.model.dividend
+      if nb_stocks > 1 and isinstance(payoff_fct, po.Put1Dim):
+        vol_hat = vol/np.sqrt(nb_stocks)
+        dividend_hat = dividend + vol**2/2 - vol_hat**2/2
+      elif nb_stocks == 1:
+        vol_hat = vol
+        dividend_hat = dividend
+      else:
+        raise ValueError("Binomial Pricer is not implemented for nb_stocks>1 "
+                         "if the payoff is not Put")
       return utilities.compute_gamma_via_BS_PDE(
         price=price, delta=delta, theta=theta, rate=self.model.rate,
-        vola=self.model.volatility, spot=self.model.spot)
+        vola=vol_hat, spot=self.model.spot,
+        dividend=dividend_hat)
     return None
 
   def price_and_greeks(

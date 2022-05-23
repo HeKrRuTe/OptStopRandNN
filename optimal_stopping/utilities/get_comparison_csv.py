@@ -106,7 +106,10 @@ def get_comparison_csv(
                 price_w, delta_w, gamma_w, theta_w, rho_w, vega_w = [None]*6
             _comp_data = [filter]
             for fi in filters_to_add_as_columns:
-                _comp_data.append(filter[fi])
+                try:
+                    _comp_data.append(filter[fi])
+                except Exception:
+                    _comp_data.append(None)
             _comp_data += [price, std, delta, delta_std, gamma, gamma_std,
                            theta, theta_std, rho, rho_std, vega, vega_std,
                            price_w, delta_w, gamma_w, theta_w, rho_w, vega_w]

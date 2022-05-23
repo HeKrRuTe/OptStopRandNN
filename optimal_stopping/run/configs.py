@@ -209,55 +209,47 @@ table_smallDim_BS_GeoPut_BS = _VerySmallDimensionTable(
 table_smallDim_BS_GeoPut_ref1 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
     nb_stocks=[1], nb_dates=[10000],
-    volatilities=[0.2], dividends=[0.0],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig2 = 0.2*np.sqrt(5)/5
 table_smallDim_BS_GeoPut_ref2 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig2], dividends=[0.2**2/2 - sig2**2/2],
+    nb_stocks=[5], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig3 = 0.2*np.sqrt(10)/10
 table_smallDim_BS_GeoPut_ref3 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig3], dividends=[0.2**2/2 - sig3**2/2],
+    nb_stocks=[10], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig4 = 0.2*np.sqrt(20)/20
 table_smallDim_BS_GeoPut_ref4 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig4], dividends=[0.2**2/2 - sig4**2/2],
+    nb_stocks=[20], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig5 = 0.2*np.sqrt(50)/50
 table_smallDim_BS_GeoPut_ref5 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig5], dividends=[0.2**2/2 - sig5**2/2],
+    nb_stocks=[50], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig6 = 0.2*np.sqrt(100)/100
 table_smallDim_BS_GeoPut_ref6 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig6], dividends=[0.2**2/2 - sig6**2/2],
+    nb_stocks=[100], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig7 = 0.2*np.sqrt(500)/500
 table_smallDim_BS_GeoPut_ref7 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig7], dividends=[0.2**2/2 - sig7**2/2],
+    nb_stocks=[500], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig8 = 0.2*np.sqrt(1000)/1000
 table_smallDim_BS_GeoPut_ref8 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig8], dividends=[0.2**2/2 - sig8**2/2],
+    nb_stocks=[1000], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
-sig9 = 0.2*np.sqrt(2000)/2000
 table_smallDim_BS_GeoPut_ref9 = _VerySmallDimensionTable(
     payoffs=['Put1Dim'], algos=["B"], nb_runs=1,
-    nb_stocks=[1], nb_dates=[10000],
-    volatilities=[sig9], dividends=[0.2**2/2 - sig9**2/2],
+    nb_stocks=[2000], nb_dates=[10000],
+    volatilities=[0.2],
     stock_models=['BlackScholes'],)
 # -- overview table
 table_GeoPut_payoffs_gt1 = _DimensionTable(

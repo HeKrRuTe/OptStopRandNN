@@ -381,11 +381,14 @@ class AmericanOptionPricer:
     disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
                               self.model.nb_dates)
     rate_old = copy.copy(self.model.rate)
+    drift_old = copy.copy(self.model.drift)
     self.model.rate += eps
+    self.model.drift += eps
     stock_paths_p, var_paths_p = self.model.generate_paths(dW=dW)
     disc_factor_p = np.math.exp((-self.model.rate) * self.model.maturity /
                                 self.model.nb_dates)
     self.model.rate = rate_old
+    self.model.drift = drift_old
     time_path_gen = time.time() - t1
 
     price, rho = self.get_forward_derivative(
@@ -400,15 +403,19 @@ class AmericanOptionPricer:
     disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
                               self.model.nb_dates)
     rate_old = copy.copy(self.model.rate)
+    drift_old = copy.copy(self.model.drift)
     self.model.rate += eps
+    self.model.drift += eps
     stock_paths_p, var_paths_p = self.model.generate_paths(dW=dW)
     disc_factor_p = np.math.exp((-self.model.rate) * self.model.maturity /
                                 self.model.nb_dates)
     self.model.rate = rate_old - eps
+    self.model.drift = drift_old - eps
     stock_paths_m, var_paths_m = self.model.generate_paths(dW=dW)
     disc_factor_m = np.math.exp((-self.model.rate) * self.model.maturity /
                                 self.model.nb_dates)
     self.model.rate = rate_old
+    self.model.drift = drift_old
     time_path_gen = time.time() - t1
 
     price, rho = self.get_central_derivative(
@@ -541,7 +548,8 @@ class AmericanOptionPricer:
     if self.model.name == "BlackScholes":
       return utilities.compute_gamma_via_BS_PDE(
         price=price, delta=delta, theta=theta, rate=self.model.rate,
-        vola=self.model.volatility, spot=self.model.spot)
+        vola=self.model.volatility, spot=self.model.spot,
+        dividend=self.model.dividend)
     return None
 
   def get_regression(self, spot, eps, d, dW):

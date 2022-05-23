@@ -23,6 +23,7 @@ class Model:
     self.name = name
     self.drift = drift - dividend
     self.rate = drift
+    self.dividend = dividend
     self.volatility = volatility
     self.spot = spot
     self.nb_stocks = nb_stocks

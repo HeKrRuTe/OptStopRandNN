@@ -25,10 +25,14 @@ def get_poly_basis_and_derivatives(X, d):
     return poly_basis, poly_basis_delta, poly_basis_gamma
 
 
-def compute_gamma_via_BS_PDE(price, delta, theta, rate, vola, spot):
+def compute_gamma_via_BS_PDE(
+        price, delta, theta, rate, vola, spot, dividend=0.):
     """
     use the Black-Scholes PDE
     (https://en.wikipedia.org/wiki/Black–Scholes_equation) to compute the value
     of gamma out of the price, delta and theta.
+    For the extension with dividend see equation (2) in:
+    https://www.math.tamu.edu/~mike.stecher/425/Sp12/optionsForDividendStocks.pdf
     """
-    return (rate*price - theta - rate*spot*delta)*2 / (vola**2 * spot**2)
+    return (rate*price - theta - (rate-dividend)*spot*delta)*2 / \
+           (vola**2 * spot**2)
