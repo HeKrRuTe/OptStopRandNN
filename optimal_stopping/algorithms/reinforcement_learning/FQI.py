@@ -82,6 +82,9 @@ class FQIFast(reinforcement_learning_price.FQI_RL):
         self.weights = np.linalg.solve(X, y)
 
     def price(self):
+        """
+        see backward_induction_pricer.py
+        """
         t1 = time.time()
         stock_paths, var_paths = self.model.generate_paths()
         payoffs = self.payoff(stock_paths)
@@ -134,6 +137,9 @@ class FQIFast(reinforcement_learning_price.FQI_RL):
             stock_paths_p, var_paths_p, discount_factor_p,
             stock_paths_m, var_paths_m, discount_factor_m,
             eps, fd_freeze_exe_boundary=True):
+        """
+        see backward_induction_pricer.py
+        """
         payoffs = self.payoff(stock_paths)
         stock_paths_with_payoff = np.concatenate(
             [stock_paths, np.expand_dims(payoffs, axis=1)], axis=1)
@@ -241,85 +247,10 @@ class FQIFast(reinforcement_learning_price.FQI_RL):
 
         return price, derivative
 
-    def get_forward_derivative(
-            self, eps, stock_paths, var_paths, discount_factor,
-            stock_paths_p, var_paths_p, discount_factor_p):
-        payoffs = self.payoff(stock_paths)
-        stock_paths_with_payoff = np.concatenate(
-            [stock_paths, np.expand_dims(payoffs, axis=1)], axis=1)
-        payoffs_p = self.payoff(stock_paths_p)
-        stock_paths_with_payoff_p = np.concatenate(
-            [stock_paths_p, np.expand_dims(payoffs_p, axis=1)], axis=1)
-        self.split = int(len(stock_paths)/2)
-        nb_paths, nb_stocks, nb_dates = stock_paths.shape
-        # weights = np.zeros(self.nb_base_fcts, dtype=float)
-        self.init_reg_weights(self.nb_base_fcts)
-        if self.use_payoff_as_input:
-            paths = stock_paths_with_payoff
-            paths_p = stock_paths_with_payoff_p
-        else:
-            paths = stock_paths
-            paths_p = stock_paths_p
-        if self.use_var:
-            paths = np.concatenate([paths, var_paths], axis=1)
-            paths_p = np.concatenate([paths_p, var_paths_p], axis=1)
-        eval_bases = self.evaluate_bases_all(paths)
-        eval_bases_p = self.evaluate_bases_all(paths_p)
-
-        for epoch in range(self.nb_epochs):
-            continuation_value = self.predict_reg(
-                eval_bases[:self.split, 1:, :])
-            indicator_stop = np.maximum(
-                payoffs[:self.split, 1:], continuation_value)
-            matrixU = np.tensordot(eval_bases[:self.split, :-1, :],
-                                   eval_bases[:self.split, :-1, :],
-                                   axes=([0, 1],[0, 1]))
-            vectorV = np.sum(
-                eval_bases[:self.split, :-1, :] * discount_factor * np.repeat(
-                    np.expand_dims(indicator_stop, axis=2),
-                    np.shape(eval_bases)[2],
-                    axis=2),
-                axis=(0, 1))
-            self.fit_reg(matrixU, vectorV)
-        continuation_value = np.maximum(self.predict_reg(eval_bases), 0)
-
-        self.init_reg_weights(self.nb_base_fcts)
-        for epoch in range(self.nb_epochs):
-            continuation_value_p = self.predict_reg(
-                eval_bases_p[:self.split, 1:, :])
-            indicator_stop = np.maximum(
-                payoffs_p[:self.split, 1:], continuation_value_p)
-            matrixU = np.tensordot(eval_bases_p[:self.split, :-1, :],
-                                   eval_bases_p[:self.split, :-1, :],
-                                   axes=([0, 1],[0, 1]))
-            vectorV = np.sum(
-                eval_bases_p[:self.split, :-1, :] * discount_factor_p *
-                np.repeat(np.expand_dims(indicator_stop, axis=2),
-                          np.shape(eval_bases_p)[2], axis=2),
-                axis=(0, 1))
-            self.fit_reg(matrixU, vectorV)
-        continuation_value_p = np.maximum(self.predict_reg(eval_bases_p), 0)
-
-        which = (payoffs > continuation_value)*1
-        which[:, -1] = 1
-        which[:, 0] = 0
-        which_p = (payoffs_p > continuation_value_p)*1
-        which_p[:, -1] = 1
-        which_p[:, 0] = 0
-        ex_dates = np.argmax(which, axis=1)
-        _ex_dates = ex_dates + np.arange(len(ex_dates))*nb_dates
-        ex_dates_p = np.argmax(which_p, axis=1)
-        _ex_dates_p = ex_dates_p + np.arange(len(ex_dates_p))*nb_dates
-        prices = payoffs.reshape(-1)[_ex_dates] * discount_factor**ex_dates
-        prices_p = payoffs_p.reshape(-1)[_ex_dates_p] \
-                   * discount_factor_p**ex_dates_p
-
-        price = np.mean(prices[self.split:])
-        derivative = np.mean((prices_p[self.split:] - prices[self.split:])/eps)
-
-        return price, derivative
-
     def get_regression(self, spot, eps, d, dW):
+        """
+        see backward_induction_pricer.py
+        """
         t1 = time.time()
         self.model.spot = spot
         X0 = np.random.normal(loc=spot, scale=eps,

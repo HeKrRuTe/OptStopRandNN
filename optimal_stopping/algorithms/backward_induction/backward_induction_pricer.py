@@ -98,7 +98,8 @@ class AmericanOptionPricer:
     return stopping_rule
 
   def price(self):
-    """It computes the price of an American Option using a backward recursion.
+    """
+    Compute the price of an American Option using a backward recursion.
     """
     model = self.model
     t1 = time.time()
@@ -154,6 +155,21 @@ class AmericanOptionPricer:
            time_for_path_gen
 
   def get_spot_derivative(self, spot, eps, dW, fd_freeze_exe_boundary=True):
+    """
+    Compute the derivative wrt. the spot (called delta) via the central
+    finite difference method, i.e. compute price for original spot value +eps
+    and -eps and take the difference divided by 2*eps.
+    Possibility to use the same exercise boundary (i.e. the same continuation
+    value for the stopping decision), which is implied by the midpoint (original
+    value).
+    @param spot: original spot value
+    @param eps: the epsilon to use
+    @param dW: the brownian increments to be reused for all different starting
+            values
+    @param fd_freeze_exe_boundary: bool, whether to use the same exercise
+            boundary for all different starting values
+    @return: price (at midpoint), delta, time for path-generation
+    """
     t1 = time.time()
     self.model.spot = spot
     stock_paths, var_paths = self.model.generate_paths(dW=dW)
@@ -176,30 +192,30 @@ class AmericanOptionPricer:
 
     return price, delta, time_path_gen
 
-  def get_spot_derivative2(self, spot, eps, dW, fd_freeze_exe_boundary=True):
-    t1 = time.time()
-    self.model.spot = spot
-    stock_paths, var_paths = self.model.generate_paths(dW=dW)
-    disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
-                              (self.model.nb_dates))
-    self.model.spot = spot + eps
-    stock_paths_p, var_paths_p = self.model.generate_paths(dW=dW)
-    disc_factor_p = disc_factor
-    self.model.spot = spot - eps
-    self.model.spot = spot
-    time_path_gen = time.time() - t1
-
-    price, delta = self.get_forward_derivative(
-      eps, stock_paths, var_paths, disc_factor,
-      stock_paths_p, var_paths_p, disc_factor_p)
-
-    return price, delta, time_path_gen
-
   def get_central_derivative(
           self, stock_paths, var_paths, disc_factor,
           stock_paths_p, var_paths_p, disc_factor_p,
           stock_paths_m, var_paths_m, disc_factor_m,
           eps, fd_freeze_exe_boundary=True):
+    """
+    compute the midpoint price and the approximation of its derivative via the
+    central finite difference method.
+    @param stock_paths: paths associated with midpoint of stock-values
+    @param var_paths: paths associated with midpoint of var-values, if needed
+    @param disc_factor: discount factor associated with midpoint
+    @param stock_paths_p: paths associated with midpoint +eps of stock-values
+    @param var_paths_p: paths associated with midpoint +eps of var-values, if
+            needed
+    @param disc_factor_p: discount factor associated with midpoint +eps
+    @param stock_paths_m: paths associated with midpoint -eps of stock-values
+    @param var_paths_m: paths associated with midpoint -eps of var-values, if
+            needed
+    @param disc_factor_m: discount factor associated with midpoint -eps
+    @param eps: the epsilon value by which midpoint is shifted
+    @param fd_freeze_exe_boundary: bool, whether to use exercise boundary of
+            midpoint also for +/-eps valeus
+    @return: price, derivative
+    """
     payoffs = self.payoff(stock_paths)
     stock_paths_with_payoff = np.concatenate(
       [stock_paths, np.expand_dims(payoffs, axis=1)], axis=1)
@@ -322,30 +338,22 @@ class AmericanOptionPricer:
 
     return price, derivative
 
-  def get_time_derivative(self, eps, dW):
-    t1 = time.time()
-    stock_paths, var_paths = self.model.generate_paths(dW=dW)
-    disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
-                              self.model.nb_dates)
-    maturity_old = copy.copy(self.model.maturity)
-    self.model.maturity -= eps
-    dt_old = copy.copy(self.model.dt)
-    self.model.dt = self.model.maturity / self.model.nb_dates
-    stock_paths_p, var_paths_p = self.model.generate_paths(
-      dW=dW*np.sqrt(self.model.dt)/np.sqrt(dt_old))
-    disc_factor_p = np.math.exp((-self.model.rate) * self.model.maturity /
-                                self.model.nb_dates)
-    self.model.maturity = maturity_old
-    self.model.dt = dt_old
-    time_path_gen = time.time() - t1
-
-    price, theta = self.get_forward_derivative(
-      eps, stock_paths, var_paths, disc_factor,
-      stock_paths_p, var_paths_p, disc_factor_p)
-
-    return price, theta, time_path_gen
-
-  def get_time_derivative2(self, eps, dW, fd_freeze_exe_boundary=False):
+  def get_time_derivative(self, eps, dW, fd_freeze_exe_boundary=False):
+    """
+    Compute the derivative wrt. the time (called theta) via the central
+    finite difference method, i.e. compute price for original maturity value
+    -eps (<=> current time +eps) and +eps (<=> current time -eps) and
+    take the difference divided by 2*eps.
+    Possibility to use the same exercise boundary (i.e. the same continuation
+    value for the stopping decision), which is implied by the midpoint (original
+    value).
+    @param eps: the epsilon to use
+    @param dW: the brownian increments to be reused for all different starting
+            values
+    @param fd_freeze_exe_boundary: bool, whether to use the same exercise
+            boundary for all different starting values
+    @return: price (at midpoint), theta, time for path-generation
+    """
     t1 = time.time()
     stock_paths, var_paths = self.model.generate_paths(dW=dW)
     disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
@@ -376,29 +384,21 @@ class AmericanOptionPricer:
 
     return price, theta, time_path_gen
 
-  def get_rate_derivative(self, eps, dW):
-    t1 = time.time()
-    stock_paths, var_paths = self.model.generate_paths(dW=dW)
-    disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
-                              self.model.nb_dates)
-    rate_old = copy.copy(self.model.rate)
-    drift_old = copy.copy(self.model.drift)
-    self.model.rate += eps
-    self.model.drift += eps
-    stock_paths_p, var_paths_p = self.model.generate_paths(dW=dW)
-    disc_factor_p = np.math.exp((-self.model.rate) * self.model.maturity /
-                                self.model.nb_dates)
-    self.model.rate = rate_old
-    self.model.drift = drift_old
-    time_path_gen = time.time() - t1
-
-    price, rho = self.get_forward_derivative(
-      eps, stock_paths, var_paths, disc_factor,
-      stock_paths_p, var_paths_p, disc_factor_p)
-
-    return price, rho, time_path_gen
-
-  def get_rate_derivative2(self, eps, dW, fd_freeze_exe_boundary=False):
+  def get_rate_derivative(self, eps, dW, fd_freeze_exe_boundary=False):
+    """
+    Compute the derivative wrt. the rate (called rho) via the central
+    finite difference method, i.e. compute price for original rate value
+    +eps and -eps and take the difference divided by 2*eps.
+    Possibility to use the same exercise boundary (i.e. the same continuation
+    value for the stopping decision), which is implied by the midpoint (original
+    value).
+    @param eps: the epsilon to use
+    @param dW: the brownian increments to be reused for all different starting
+            values
+    @param fd_freeze_exe_boundary: bool, whether to use the same exercise
+            boundary for all different starting values
+    @return: price (at midpoint), rho, time for path-generation
+    """
     t1 = time.time()
     stock_paths, var_paths = self.model.generate_paths(dW=dW)
     disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
@@ -427,25 +427,21 @@ class AmericanOptionPricer:
 
     return price, rho, time_path_gen
 
-  def get_vola_derivative(self, eps, dW):
-    t1 = time.time()
-    stock_paths, var_paths = self.model.generate_paths(dW=dW)
-    disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
-                              self.model.nb_dates)
-    vola_old = copy.copy(self.model.volatility)
-    self.model.volatility += eps
-    stock_paths_p, var_paths_p = self.model.generate_paths(dW=dW)
-    disc_factor_p = disc_factor
-    self.model.volatility = vola_old
-    time_path_gen = time.time() - t1
-
-    price, vega = self.get_forward_derivative(
-      eps, stock_paths, var_paths, disc_factor,
-      stock_paths_p, var_paths_p, disc_factor_p)
-
-    return price, vega, time_path_gen
-
-  def get_vola_derivative2(self, eps, dW, fd_freeze_exe_boundary=False):
+  def get_vola_derivative(self, eps, dW, fd_freeze_exe_boundary=False):
+    """
+    Compute the derivative wrt. the volatility (called vega) via the central
+    finite difference method, i.e. compute price for original sigma value
+    +eps and -eps and take the difference divided by 2*eps.
+    Possibility to use the same exercise boundary (i.e. the same continuation
+    value for the stopping decision), which is implied by the midpoint (original
+    value).
+    @param eps: the epsilon to use
+    @param dW: the brownian increments to be reused for all different starting
+            values
+    @param fd_freeze_exe_boundary: bool, whether to use the same exercise
+            boundary for all different starting values
+    @return: price (at midpoint), vega, time for path-generation
+    """
     t1 = time.time()
     stock_paths, var_paths = self.model.generate_paths(dW=dW)
     disc_factor = np.math.exp((-self.model.rate) * self.model.maturity /
@@ -470,82 +466,18 @@ class AmericanOptionPricer:
 
     return price, vega, time_path_gen
 
-  def get_forward_derivative(
-          self, eps, stock_paths, var_paths, disc_factor,
-          stock_paths_p, var_paths_p, disc_factor_p):
-    payoffs = self.payoff(stock_paths)
-    stock_paths_with_payoff = np.concatenate(
-      [stock_paths, np.expand_dims(payoffs, axis=1)], axis=1)
-    payoffs_p = self.payoff(stock_paths_p)
-    stock_paths_with_payoff_p = np.concatenate(
-      [stock_paths_p, np.expand_dims(payoffs_p, axis=1)], axis=1)
-    self.split = int(len(stock_paths)/2)
-    if self.use_rnn:
-      if self.use_payoff_as_input:
-        hs = self.compute_hs(stock_paths_with_payoff, var_paths=var_paths)
-        hs_p = self.compute_hs(stock_paths_with_payoff_p, var_paths=var_paths_p)
-      else:
-        hs = self.compute_hs(stock_paths, var_paths=var_paths)
-        hs_p = self.compute_hs(stock_paths_p, var_paths=var_paths_p)
-    immediate_exercise_value = self.payoff.eval(stock_paths[:, :, -1])
-    values = immediate_exercise_value
-    immediate_exercise_value_p = self.payoff.eval(stock_paths_p[:, :, -1])
-    values_p = immediate_exercise_value_p
-    for date in range(stock_paths.shape[2] - 2, 0, -1):
-      immediate_exercise_value = self.payoff.eval(stock_paths[:, :, date])
-      immediate_exercise_value_p = self.payoff.eval(stock_paths_p[:, :, date])
-      if self.use_rnn:
-        h = hs[date]
-        h_p = hs_p[date]
-      else:
-        h, h_p, h_m = None, None, None
-      if self.use_path:
-        varp, varp_m, varp_p = None, None, None
-        if self.use_var:
-          varp = var_paths[:, :, :date+1]
-          varp_p = var_paths_p[:, :, :date+1]
-        if self.use_payoff_as_input:
-          paths = stock_paths_with_payoff[:, :, :date+1]
-          paths_p = stock_paths_with_payoff_p[:, :, :date+1]
-        else:
-          paths = stock_paths[:, :, :date+1]
-          paths_p = stock_paths_p[:, :, :date+1]
-      else:
-        varp, varp_m, varp_p = None, None, None
-        if self.use_var:
-          varp = var_paths[:, :, date]
-          varp_p = var_paths_p[:, :, date]
-        if self.use_payoff_as_input:
-          paths = stock_paths_with_payoff[:, :, date]
-          paths_p = stock_paths_with_payoff_p[:, :, date]
-        else:
-          paths = stock_paths[:, :, date]
-          paths_p = stock_paths_p[:, :, date]
-
-      stopping_rule, continuation_values = self.stop(
-        paths, immediate_exercise_value,
-        values*disc_factor, h=h, var_paths=varp,
-        return_continuation_values=True)
-      stopping_rule_p = self.stop(
-        paths_p, immediate_exercise_value_p,
-        values_p * disc_factor_p, h=h_p, var_paths=varp_p)
-
-      which = stopping_rule > 0.5
-      which_p = stopping_rule_p > 0.5
-      values[which] = immediate_exercise_value[which]
-      values[~which] *= disc_factor
-      values_p[which_p] = immediate_exercise_value_p[which_p]
-      values_p[~which_p] *= disc_factor_p
-
-    values *= disc_factor
-    values_p *= disc_factor_p
-
-    price = np.mean(values[self.split:])
-    derivative = np.mean((values_p[self.split:] - values[self.split:])/eps)
-
-    return price, derivative
-
   def compute_gamma_via_PDE(self, price, delta, theta):
+    """
+    use the Black-Scholes PDE (possibly with dividend, see:
+    https://www.math.tamu.edu/~mike.stecher/425/Sp12/optionsForDividendStocks.pdf)
+    to compute the value of gamma out of the price, delta and theta (& rate,
+    vola, spot, dividend). only works if the underlying model is a
+    1-dim Black-Scholes model, otherwise returns None.
+    @param price:
+    @param delta:
+    @param theta:
+    @return: gamma
+    """
     if self.model.name == "BlackScholes":
       return utilities.compute_gamma_via_BS_PDE(
         price=price, delta=delta, theta=theta, rate=self.model.rate,
@@ -554,6 +486,21 @@ class AmericanOptionPricer:
     return None
 
   def get_regression(self, spot, eps, d, dW):
+    """
+    compute the price, delta and gamma via regression method as proposed in:
+    https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889
+    in particular, instead of starting all MC paths at same spot price, use
+    random starting points ~N(spot,eps^2) and fit a polynomial regression model
+    mapping starting points to prices. price is computed by evaluating regresion
+    model at spot price, delta and gamma by computing 1st and 2nd derivative of
+    regression model (i.e. computing derivatives of polynomial basis) and
+    evaluating them at spot price.
+    @param spot: original spot price
+    @param eps: std for normal distribution for spot distortion
+    @param d: degree of polynomial basis for regression
+    @param dW: Brownian increments for path generation
+    @return: price, delta, gamma, time for path-generation
+    """
     t1 = time.time()
     self.model.spot = spot
     X0 = np.random.normal(loc=spot, scale=eps,
@@ -625,8 +572,9 @@ class AmericanOptionPricer:
           poly_deg=2, reg_eps=5, fd_compute_gamma_via_PDE=True):
     """
     Computes the price of an American Option using backward recusrion.
-    Additionally computes the Delta, Gamma, Theta Greeks via finite difference
-    or regression method.
+    Additionally computes the Greeks: Delta, Gamma, Theta, Rho, Vega via finite
+    difference method (or PDE method for gamma; or regression method for price,
+    delta, gamma).
     """
     orig_spot = copy.copy(self.model.spot)
     t = time.time()
@@ -671,14 +619,11 @@ class AmericanOptionPricer:
         spot=orig_spot, eps=reg_eps, d=poly_deg, dW=dW)
     else:
       raise NotImplementedError
-    # _, theta, t4 = self.get_time_derivative(eps=1e-14, dW=dW)
-    # _, rho, t5 = self.get_rate_derivative(eps=1e-14, dW=dW)
-    # _, vega, t6 = self.get_vola_derivative(eps=1e-14, dW=dW)
-    _, theta, t4 = self.get_time_derivative2(
+    _, theta, t4 = self.get_time_derivative(
       eps=eps/2, dW=dW, fd_freeze_exe_boundary=fd_freeze_exe_boundary)
-    _, rho, t5 = self.get_rate_derivative2(
+    _, rho, t5 = self.get_rate_derivative(
       eps=eps/2, dW=dW, fd_freeze_exe_boundary=fd_freeze_exe_boundary)
-    _, vega, t6 = self.get_vola_derivative2(
+    _, vega, t6 = self.get_vola_derivative(
       eps=eps/2, dW=dW, fd_freeze_exe_boundary=fd_freeze_exe_boundary)
     if greeks_method == "regression":
       return price, t+t1+t4+t5+t6, delta, gamma, theta, rho, vega
