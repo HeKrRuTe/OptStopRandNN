@@ -5,7 +5,7 @@ class NetworkNLSM(nn.Module):
   def __init__(self, nb_stocks, hidden_size=10):
     super(NetworkNLSM, self).__init__()
     H = hidden_size
-    self.layer1 = nn.Linear(nb_stocks+1, H)
+    self.layer1 = nn.Linear(nb_stocks, H)
     self.leakyReLU = nn.LeakyReLU(0.5)
     self.sigmoid = nn.Sigmoid()
     self.bn1 = nn.BatchNorm1d(num_features=H)

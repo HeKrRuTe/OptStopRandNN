@@ -43,7 +43,8 @@ class AmericanOptionPricer:
     #bool: whether to use the payoff as extra input in addition to stocks
     self.use_payoff_as_input = use_payoff_as_input
 
-  def calculate_continuation_value(self):
+  def calculate_continuation_value(
+          self, values, immediate_exercise_value, stock_paths_at_timestep):
     """Computes the continuation value of an american option at a given date.
 
     All algorithms that inherited from this class (AmericanOptionPricer) where

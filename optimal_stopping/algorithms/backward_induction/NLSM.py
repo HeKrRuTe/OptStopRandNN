@@ -41,12 +41,10 @@ class NeuralNetworkPricer(backward_induction_pricer.AmericanOptionPricer):
       model.nb_paths, hidden_size=hidden_size,
       nb_iters=nb_epochs)
 
-  def calculate_continuation_value(self, values, immediate_exercise_value,
-                                   stock_paths_at_timestep):
+  def calculate_continuation_value(
+          self, values, immediate_exercise_value, stock_paths_at_timestep):
     """See base class."""
-    inputs = np.concatenate(
-      (stock_paths_at_timestep, immediate_exercise_value.reshape(-1, 1)),
-      axis=1)
+    inputs = stock_paths_at_timestep
 
     if self.train_ITM_only:
       in_the_money = np.where(immediate_exercise_value[:self.split] > 0)
