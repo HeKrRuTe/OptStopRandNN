@@ -21,7 +21,6 @@ class Seed:
         self.seed = seed
 
     def get_seed(self):
-        print("seed: {}".format(self.seed))
         return self.seed
 
 
