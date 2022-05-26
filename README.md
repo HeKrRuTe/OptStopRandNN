@@ -92,6 +92,7 @@ python3 -m cProfile optimal_stopping/run/run_algo.py   --algo=longstaffSchwartz 
   - **configs**: list of config names to run
   - **nb_jobs**: int, the number of parallel runs
   - **print_errors**: debugging mode
+  - **path_gen_seed**: seed for path generation, default: None (-> using random seed)
 
 
 

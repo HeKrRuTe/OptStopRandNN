@@ -99,9 +99,9 @@ class BlackScholes(Model):
         spot_paths[:, :, 0] = self.spot
     else:
         spot_paths[:, :, 0] = X0
-    random_numbers = np.random.normal(
-        0, 1, (nb_paths, self.nb_stocks, self.nb_dates))
     if dW is None:
+        random_numbers = np.random.normal(
+            0, 1, (nb_paths, self.nb_stocks, self.nb_dates))
         dW = random_numbers * np.sqrt(self.dt)
     drift = self.drift
     r = np.repeat(np.repeat(np.repeat(

@@ -11,6 +11,7 @@ import numpy as np
 import time
 import optimal_stopping.data.stock_model as stock_model
 import optimal_stopping.algorithms.utils.utilities as utilities
+from optimal_stopping.run import configs
 import copy
 
 from sklearn.linear_model import LinearRegression
@@ -103,6 +104,8 @@ class AmericanOptionPricer:
     """
     model = self.model
     t1 = time.time()
+    if configs.path_gen_seed.get_seed() is not None:
+      np.random.seed(configs.path_gen_seed.get_seed())
     stock_paths, var_paths = self.model.generate_paths()
     payoffs = self.payoff(stock_paths)
     stock_paths_with_payoff = np.concatenate(
@@ -578,6 +581,8 @@ class AmericanOptionPricer:
     """
     orig_spot = copy.copy(self.model.spot)
     t = time.time()
+    if configs.path_gen_seed.get_seed() is not None:
+      np.random.seed(configs.path_gen_seed.get_seed())
     stock_paths, var_paths, dW = self.model.generate_paths(return_dW=True)
     t = time.time() - t
     if greeks_method == "central":
@@ -652,6 +657,8 @@ class EuropeanOptionPricer:
     """
     model = self.model
     t1 = time.time()
+    if configs.path_gen_seed.get_seed() is not None:
+      np.random.seed(configs.path_gen_seed.get_seed())
     stock_paths, var_paths = self.model.generate_paths()
     payoffs = self.payoff(stock_paths)
     time_for_path_gen = time.time() - t1

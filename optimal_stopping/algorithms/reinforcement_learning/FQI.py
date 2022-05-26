@@ -13,6 +13,7 @@ from optimal_stopping.algorithms.utils import basis_functions
 from optimal_stopping.algorithms.reinforcement_learning import \
     reinforcement_learning_price
 from optimal_stopping.algorithms.utils import utilities
+from optimal_stopping.run import configs
 
 import sklearn.linear_model
 from sklearn.linear_model import LinearRegression
@@ -86,6 +87,8 @@ class FQIFast(reinforcement_learning_price.FQI_RL):
         see backward_induction_pricer.py
         """
         t1 = time.time()
+        if configs.path_gen_seed.get_seed() is not None:
+            np.random.seed(configs.path_gen_seed.get_seed())
         stock_paths, var_paths = self.model.generate_paths()
         payoffs = self.payoff(stock_paths)
         stock_paths_with_payoff = np.concatenate(

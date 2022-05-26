@@ -13,6 +13,20 @@ Algos:NLSM, LSM, LS2, DOS, HP, LSPI, FQI, FQIR, LN, LN2, LND
 New algos = RLSM, FQI, RFQI, LNfast
 '''
 
+class Seed:
+    def __init__(self):
+        self.seed = None
+
+    def set_seed(self, seed):
+        self.seed = seed
+
+    def get_seed(self):
+        print("seed: {}".format(self.seed))
+        return self.seed
+
+
+path_gen_seed = Seed()
+
 
 @dataclass
 class _DefaultConfig:

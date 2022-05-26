@@ -12,6 +12,7 @@ import numpy as np
 from optimal_stopping.algorithms.backward_induction import \
   backward_induction_pricer
 from optimal_stopping.algorithms.utils import neural_networks
+from optimal_stopping.run import configs
 
 
 class FQI_RL(backward_induction_pricer.AmericanOptionPricer):
@@ -56,6 +57,8 @@ class FQI_RL(backward_induction_pricer.AmericanOptionPricer):
 
   def price(self):
     t1 = time.time()
+    if configs.path_gen_seed.get_seed() is not None:
+      np.random.seed(configs.path_gen_seed.get_seed())
     stock_paths, var_paths = self.model.generate_paths()
     payoffs = self.payoff(stock_paths)
     stock_paths_with_payoff = np.concatenate(

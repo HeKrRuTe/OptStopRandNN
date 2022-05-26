@@ -36,6 +36,7 @@ from optimal_stopping.algorithms.backward_induction import PMC
 from optimal_stopping.algorithms.finite_differences import binomial
 from optimal_stopping.run import write_figures
 from optimal_stopping.algorithms.backward_induction import backward_induction_pricer
+from optimal_stopping.run import configs
 
 
 import joblib
@@ -78,6 +79,8 @@ flags.DEFINE_list("algos", None, "Name of the algos to run.")
 flags.DEFINE_bool("print_errors", False, "Set to True to print errors if any.")
 flags.DEFINE_integer("nb_jobs", NB_JOBS, "Number of CPUs to use parallelly")
 flags.DEFINE_bool("generate_pdf", False, "Whether to generate latex tables")
+flags.DEFINE_integer("path_gen_seed", None,
+                     "Seed for path generation")
 flags.DEFINE_bool("compute_greeks", False,
                   "Whether to compute greeks (not available for all settings)")
 flags.DEFINE_string("greeks_method", "central",
@@ -210,7 +213,7 @@ def _run_algos():
             eps=FLAGS.eps, poly_deg=FLAGS.poly_deg,
             fd_freeze_exe_boundary=FLAGS.fd_freeze_exe_boundary,
             fd_compute_gamma_via_PDE=FLAGS.fd_compute_gamma_via_PDE,
-            reg_eps=FLAGS.reg_eps))
+            reg_eps=FLAGS.reg_eps, path_gen_seed=FLAGS.path_gen_seed))
 
   print(f"Running {len(delayed_jobs)} tasks using "
         f"{FLAGS.nb_jobs}/{NUM_PROCESSORS} CPUs...")
@@ -240,7 +243,7 @@ def _run_algo(
         fail_on_error=False,
         compute_greeks=False, greeks_method=None, eps=None,
         poly_deg=None, fd_freeze_exe_boundary=True,
-        fd_compute_gamma_via_PDE=True, reg_eps=None):
+        fd_compute_gamma_via_PDE=True, reg_eps=None, path_gen_seed=None):
   """
   This functions runs one algo for option pricing. It is called by _run_algos()
   which is called in main(). Below the inputs are listed which have to be
@@ -306,7 +309,10 @@ def _run_algo(
    fd_compute_gamma_via_PDE (bool): whether to compute gamma via the PDE
    reg_eps (float): the epsilon to use in the regression method to compute
             greeks
+   path_gen_seed (int or None): seed for path generation (if not None)
   """
+  if path_gen_seed is not None:
+    configs.path_gen_seed.set_seed(path_gen_seed)
   print(algo, spot, volatility, maturity, nb_paths, '... ', end="")
   payoff_ = _PAYOFFS[payoff](strike)
   stock_model_ = _STOCK_MODELS[stock_model](
@@ -439,7 +445,7 @@ def main(argv):
               text='start running AMC2 with config:\n{}'.format(FLAGS.configs),
               chat_id="-399803347"
           )
-
+      configs.path_gen_seed.set_seed(FLAGS.path_gen_seed)
       filepath = _run_algos()
 
       if FLAGS.generate_pdf:
