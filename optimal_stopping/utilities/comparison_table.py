@@ -38,7 +38,7 @@ ALGOS_ORDER = [
   "FQI", "FQIR", "FQIRidge", "FQILasso", "FQILaguerre", "FQIDeg1",
   "RFQI", "RFQITanh", "RFQIRidge", "RFQILasso", "RRFQI", 'pathRFQI',
   "RFQISoftplus",
-  "EOP", "B",
+  "EOP", "B", "Trinomial",
 ]
 COLUMNS_ORDER = ["price", "duration"]
 
@@ -74,6 +74,7 @@ USE_PAYOFF_FOR_ALGO = {
   'pathRFQI': False,
   "EOP": False,
   "B": False,
+  "Trinomial": False,
 }
 
 

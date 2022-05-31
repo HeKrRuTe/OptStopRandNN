@@ -1,3 +1,12 @@
+"""Base class that computes the European and American option price using
+finite difference method.
+
+All algorithms that are using a finite difference method such as
+B (Binomial Tree)
+Trinomial (Trinomial Tree)
+PDE (Partial Differential Equation)
+"""
+
 from math import exp, sqrt
 
 import numpy as np
@@ -9,74 +18,26 @@ import optimal_stopping.algorithms.utils.utilities as utilities
 
 
 
-class BinomialPricer:
+class Finite_Difference_Pricer:
   def __init__(self, model, payoff, **kwargs):
     self.model = model
     self.payoff = payoff
+    self.set_vol_and_div()
 
   def price(self, stock_paths=None, verbose=1):
-    maturity = self.model.maturity
-    spot = self.model.spot
-    vol = self.model.volatility
-    nb_dates = self.model.nb_dates
-    rate = self.model.rate
-    nb_stocks = self.model.nb_stocks
-    payoff_fct = self.payoff
-    dividend = self.model.dividend
+    raise NotImplementedError
 
-    if nb_stocks > 1 and isinstance(payoff_fct, po.Put1Dim):
-      vol_hat = vol/np.sqrt(nb_stocks)
-      dividend_hat = dividend + vol**2/2 - vol_hat**2/2
-    elif nb_stocks == 1:
-      vol_hat = vol
-      dividend_hat = dividend
+  def set_vol_and_div(self):
+    if self.model.nb_stocks > 1 and isinstance(self.payoff, po.Put1Dim):
+      self.vol = self.model.volatility/np.sqrt(self.model.nb_stocks)
+      self.dividend = self.model.dividend + self.model.volatility**2/2 \
+                      - self.vol**2/2
+    elif self.model.nb_stocks == 1:
+      self.vol = self.model.volatility
+      self.dividend = self.model.dividend
     else:
-      raise ValueError("Binomial Pricer is not implemented for nb_stocks>1 if "
-                       "the payoff is not Put")
-
-    deltaT = maturity / nb_dates
-    discount_factor = exp(-rate * deltaT)
-    up = exp(vol_hat * sqrt(deltaT))
-    down = 1 / up
-    proba_up = (exp((rate - dividend_hat) * deltaT) - down) / (up - down)
-    proba_down = 1 - proba_up
-    steps = range(nb_dates)
-    #  ---- OLD (SLOW) VERSION ----
-    # spot_prices = [[None] * (i+1) for i in steps]
-    # option_prices = [[None] * (i+1) for i in steps]
-    #
-    # # Forward: set the stock prices
-    # for n in steps:
-    #   for i in range(n+1):
-    #     spot_prices[n][i] = spot * up**(n-i) * down**i
-    #
-    # Backward: compute the option prices
-    # First initialize values at maturity ([-1] means last element)
-    #
-    # option_prices[-1] = [payoff_fct(spot_price) for spot_price in spot_prices[-1]]
-    # # Then move to earlier steps
-    # for n in tqdm.tqdm(reversed(steps[:-1]), disable=(not verbose)):  # t[:-1] is to remove last element
-    #   for i in range(n+1):
-    #     option_prices[n][i] = discount_factor * (proba_up * option_prices[n+1][i] + proba_down * option_prices[n+1][i+1])
-    #     exercise = payoff_fct(spot_prices[n][i])
-    #     if option_prices[n][i] < exercise:
-    #       option_prices[n][i] = exercise
-    # return option_prices[0][0], 0
-    # -----------------------------
-
-    # NEW (FAST) VERSION
-    i = np.arange(nb_dates)
-    spot_prices = spot * up**(nb_dates-1-i) * down**i
-    option_prices = payoff_fct(spot_prices)
-    for n in tqdm.tqdm(reversed(steps[:-1]), disable=(not verbose)):
-      i = np.arange(n+1)
-      spot_prices = spot * up**(n-i) * down**i
-      option_prices = discount_factor * (proba_up * option_prices[:n+1] +
-                                         proba_down * option_prices[1:n+2])
-      exercise = payoff_fct(spot_prices)
-      which = option_prices < exercise
-      option_prices[which] = exercise[which]
-    return option_prices[0], 0
+      raise ValueError("Finite differences methods are not implemented for " \
+                       "nb_stocks>1 if the payoff is not Put")
 
   def get_central_derivative(
           self, spot, eps, compute_price=True, price_p=None, price_m=None,
@@ -99,16 +60,6 @@ class BinomialPricer:
 
   def get_time_derivative(self, eps, price=None):
     maturity_old = copy.copy(self.model.maturity)
-    if price is None:
-      price, _ = self.price()
-    self.model.maturity = maturity_old - eps
-    price_p, _ = self.price()
-    self.model.maturity = maturity_old
-    theta = (price_p - price)/eps
-    return price, theta
-
-  def get_time_derivative2(self, eps, price=None):
-    maturity_old = copy.copy(self.model.maturity)
     self.model.maturity = maturity_old - eps
     price_p, _ = self.price()
     self.model.maturity = maturity_old + eps
@@ -119,16 +70,6 @@ class BinomialPricer:
 
   def get_rate_derivative(self, eps, price=None):
     rate_old = copy.copy(self.model.rate)
-    if price is None:
-      price, _ = self.price()
-    self.model.rate = rate_old + eps
-    price_p, _ = self.price()
-    self.model.rate = rate_old
-    rho = (price_p - price)/eps
-    return price, rho
-
-  def get_rate_derivative2(self, eps, price=None):
-    rate_old = copy.copy(self.model.rate)
     self.model.rate = rate_old + eps
     price_p, _ = self.price()
     self.model.rate = rate_old - eps
@@ -138,16 +79,6 @@ class BinomialPricer:
     return price, rho
 
   def get_vola_derivative(self, eps, price=None):
-    vola_old = copy.copy(self.model.volatility)
-    if price is None:
-      price, _ = self.price()
-    self.model.volatility = vola_old + eps
-    price_p, _ = self.price()
-    self.model.volatility = vola_old
-    vega = (price_p - price)/eps
-    return price, vega
-
-  def get_vola_derivative2(self, eps, price=None):
     vola_old = copy.copy(self.model.volatility)
     self.model.volatility = vola_old + eps
     price_p, _ = self.price()
@@ -205,17 +136,11 @@ class BinomialPricer:
           spot=orig_spot-3*eps/2, eps=eps/2, compute_price=False)
     else:
       raise NotImplementedError
-    # _, theta = self.get_time_derivative(eps=eps, price=price)
-    # _, rho = self.get_rate_derivative(eps=eps, price=price)
-    # _, vega = self.get_vola_derivative(eps=eps, price=price)
-    _, theta = self.get_time_derivative2(eps=eps/2, price=price)
-    _, rho = self.get_rate_derivative2(eps=eps/2, price=price)
-    _, vega = self.get_vola_derivative2(eps=eps/2, price=price)
+    _, theta = self.get_time_derivative(eps=eps/2, price=price)
+    _, rho = self.get_rate_derivative(eps=eps/2, price=price)
+    _, vega = self.get_vola_derivative(eps=eps/2, price=price)
     if not fd_compute_gamma_via_PDE:
       gamma = (delta1 - delta2) / eps
     else:
       gamma = self.compute_gamma_via_PDE(price, delta, theta)
     return price, 0, delta, gamma, theta, rho, vega
-
-
-

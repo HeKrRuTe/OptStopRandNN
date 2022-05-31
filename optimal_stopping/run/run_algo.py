@@ -30,10 +30,8 @@ from optimal_stopping.algorithms.backward_induction import NLSM
 from optimal_stopping.algorithms.reinforcement_learning import RFQI
 from optimal_stopping.algorithms.reinforcement_learning import FQI
 from optimal_stopping.algorithms.reinforcement_learning import LSPI
-from optimal_stopping.algorithms.reinforcement_learning import lenotre
-from optimal_stopping.algorithms.reinforcement_learning import lenotre2
-from optimal_stopping.algorithms.backward_induction import PMC
-from optimal_stopping.algorithms.finite_differences import binomial
+from optimal_stopping.algorithms.finite_difference import binomial
+from optimal_stopping.algorithms.finite_difference import trinomial
 from optimal_stopping.run import write_figures
 from optimal_stopping.algorithms.backward_induction import backward_induction_pricer
 from optimal_stopping.run import configs
@@ -160,6 +158,7 @@ _ALGOS = {
 
     "EOP": backward_induction_pricer.EuropeanOptionPricer,
     "B": binomial.BinomialPricer,
+    "Trinomial": trinomial.TrinomialPricer,
 }
 
 _NUM_FACTORS = {
@@ -473,5 +472,3 @@ def main(argv):
 
 if __name__ == "__main__":
   app.run(main)
-
-
