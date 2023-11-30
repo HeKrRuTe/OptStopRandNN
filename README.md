@@ -1,4 +1,7 @@
 # Optimal Stopping via Randomized Neural Networks
+
+[![DOI](https://zenodo.org/badge/362390705.svg)](https://zenodo.org/badge/latestdoi/362390705)
+
 This repository is the official implementation of the paper
 [Optimal Stopping via Randomized Neural Networks](https://arxiv.org/abs/2104.13669).
 
