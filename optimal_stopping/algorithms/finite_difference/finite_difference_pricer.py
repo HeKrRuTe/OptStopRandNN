@@ -24,7 +24,7 @@ class Finite_Difference_Pricer:
     self.payoff = payoff
     self.set_vol_and_div()
 
-  def price(self, stock_paths=None, verbose=1):
+  def price(self, stock_paths=None, verbose=1, **kwargs):
     raise NotImplementedError
 
   def set_vol_and_div(self):
@@ -114,33 +114,21 @@ class Finite_Difference_Pricer:
           fd_compute_gamma_via_PDE=True, **kwargs):
     orig_spot = copy.copy(self.model.spot)
     if greeks_method == "central":
-      price, delta = self.get_central_derivative(spot=orig_spot, eps=eps/2)
-      if not fd_compute_gamma_via_PDE:
-        _, delta1 = self.get_central_derivative(
-          spot=orig_spot+eps/2, eps=eps/2, compute_price=False, price_m=price)
-        _, delta2 = self.get_central_derivative(
-          spot=orig_spot-eps/2, eps=eps/2, compute_price=False, price_p=price)
+      price, delta, p_p, p_m = self.get_central_derivative(
+        spot=orig_spot, eps=eps/2, return_prices_pm=True)
     elif greeks_method == "forward":
-      price, delta = self.get_central_derivative(
-        spot=orig_spot+eps/2, eps=eps/2)
-      if not fd_compute_gamma_via_PDE:
-        _, delta1 = self.get_central_derivative(
-          spot=orig_spot+3*eps/2, eps=eps/2, compute_price=False)
-        delta2 = delta
+      price, delta, p_p, p_m = self.get_central_derivative(
+        spot=orig_spot+eps/2, eps=eps/2, return_prices_pm=True)
     elif greeks_method == "backward":
-      price, delta = self.get_central_derivative(
-        spot=orig_spot-eps/2, eps=eps/2)
-      if not fd_compute_gamma_via_PDE:
-        delta1 = delta
-        _, delta2 = self.get_central_derivative(
-          spot=orig_spot-3*eps/2, eps=eps/2, compute_price=False)
+      price, delta, p_p, p_m = self.get_central_derivative(
+        spot=orig_spot-eps/2, eps=eps/2, return_prices_pm=True)
     else:
       raise NotImplementedError
     _, theta = self.get_time_derivative(eps=eps/2, price=price)
     _, rho = self.get_rate_derivative(eps=eps/2, price=price)
     _, vega = self.get_vola_derivative(eps=eps/2, price=price)
     if not fd_compute_gamma_via_PDE:
-      gamma = (delta1 - delta2) / eps
+      gamma = (p_p - 2*price + p_m) / ((eps/2)**2)
     else:
       gamma = self.compute_gamma_via_PDE(price, delta, theta)
     return price, 0, delta, gamma, theta, rho, vega

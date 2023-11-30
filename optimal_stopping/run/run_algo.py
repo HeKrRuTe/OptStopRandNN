@@ -79,6 +79,8 @@ flags.DEFINE_integer("nb_jobs", NB_JOBS, "Number of CPUs to use parallelly")
 flags.DEFINE_bool("generate_pdf", False, "Whether to generate latex tables")
 flags.DEFINE_integer("path_gen_seed", None,
                      "Seed for path generation")
+flags.DEFINE_bool("compute_upper_bound", False,
+                  "Whether to additionally compute upper bound for price")
 flags.DEFINE_bool("compute_greeks", False,
                   "Whether to compute greeks (not available for all settings)")
 flags.DEFINE_string("greeks_method", "central",
@@ -93,6 +95,9 @@ flags.DEFINE_bool("fd_freeze_exe_boundary", True,
                   "Whether to use same exercise boundary")
 flags.DEFINE_bool("fd_compute_gamma_via_PDE", True,
                   "Whether to use the PDE to compute gamma")
+flags.DEFINE_bool("DEBUG", False, "Turn on debug mode")
+flags.DEFINE_integer("train_eval_split", 2,
+                     "divisor for the train/eval split")
 
 
 _CSV_HEADERS = ['algo', 'model', 'payoff', 'drift', 'volatility', 'mean',
@@ -102,7 +107,8 @@ _CSV_HEADERS = ['algo', 'model', 'payoff', 'drift', 'volatility', 'mean',
                 'ridge_coeff', 'use_payoff_as_input',
                 'train_ITM_only', 'use_path',
                 'price', 'duration', 'time_path_gen', 'comp_time',
-                'delta', 'gamma', 'theta', 'rho', 'vega', 'greeks_method']
+                'delta', 'gamma', 'theta', 'rho', 'vega', 'greeks_method',
+                'price_upper_bound',]
 
 _PAYOFFS = {
     "MaxPut": payoff.MaxPut,
@@ -144,9 +150,11 @@ _ALGOS = {
     "RLSMSilu": RLSM.ReservoirLeastSquarePricerFastSILU,
     "RLSMGelu": RLSM.ReservoirLeastSquarePricerFastGELU,
     "RLSMSoftplus": RLSM.ReservoirLeastSquarePricerFastSoftplus,
+    "RLSMSoftplusReinit": RLSM.ReservoirLeastSquarePricerFastSoftplusReinit,
 
     "RRLSM": RRLSM.ReservoirRNNLeastSquarePricer2,
     "RRLSMmix": RRLSM.ReservoirRNNLeastSquarePricer,
+    "RRLSMRidge": RRLSM.ReservoirRNNLeastSquarePricer2Ridge,
 
     "RFQI": RFQI.FQI_ReservoirFast,
     "RFQISoftplus": RFQI.FQI_ReservoirFastSoftplus,
@@ -212,7 +220,9 @@ def _run_algos():
             eps=FLAGS.eps, poly_deg=FLAGS.poly_deg,
             fd_freeze_exe_boundary=FLAGS.fd_freeze_exe_boundary,
             fd_compute_gamma_via_PDE=FLAGS.fd_compute_gamma_via_PDE,
-            reg_eps=FLAGS.reg_eps, path_gen_seed=FLAGS.path_gen_seed))
+            reg_eps=FLAGS.reg_eps, path_gen_seed=FLAGS.path_gen_seed,
+            compute_upper_bound=FLAGS.compute_upper_bound,
+            DEBUG=FLAGS.DEBUG, train_eval_split=FLAGS.train_eval_split,))
 
   print(f"Running {len(delayed_jobs)} tasks using "
         f"{FLAGS.nb_jobs}/{NUM_PROCESSORS} CPUs...")
@@ -242,7 +252,10 @@ def _run_algo(
         fail_on_error=False,
         compute_greeks=False, greeks_method=None, eps=None,
         poly_deg=None, fd_freeze_exe_boundary=True,
-        fd_compute_gamma_via_PDE=True, reg_eps=None, path_gen_seed=None):
+        fd_compute_gamma_via_PDE=True, reg_eps=None, path_gen_seed=None,
+        compute_upper_bound=False,
+        DEBUG=False, train_eval_split=2):
+
   """
   This functions runs one algo for option pricing. It is called by _run_algos()
   which is called in main(). Below the inputs are listed which have to be
@@ -309,6 +322,7 @@ def _run_algo(
    reg_eps (float): the epsilon to use in the regression method to compute
             greeks
    path_gen_seed (int or None): seed for path generation (if not None)
+   compute_upper_bound (bool): whether to compute the upper bound for the price
   """
   if path_gen_seed is not None:
     configs.path_gen_seed.set_seed(path_gen_seed)
@@ -340,13 +354,13 @@ def _run_algo(
                             hidden_size=hidden_size, use_path=use_path,
                             use_payoff_as_input=use_payoff_as_input)
   elif algo in ["RLSM", "RRLSMmix", "RRLSM", "RLSMTanh", "RLSMElu", "RLSMSilu",
-                "RLSMGelu","RLSMSoftplus",
+                "RLSMGelu","RLSMSoftplus", "RLSMSoftplusReinit",
                 "RRFQI", "RFQITanh", "RFQI",]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
                             hidden_size=hidden_size, factors=factors,
                             train_ITM_only=train_ITM_only,
                             use_payoff_as_input=use_payoff_as_input)
-  elif algo in ["RLSMRidge", "RFQIRidge"]:
+  elif algo in ["RLSMRidge", "RFQIRidge", "RRLSMRidge"]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
                             hidden_size=hidden_size, factors=factors,
                             train_ITM_only=train_ITM_only,
@@ -355,6 +369,7 @@ def _run_algo(
   elif algo in ["FQIRidge"]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
                             ridge_coeff=ridge_coeff,
+                            train_ITM_only=train_ITM_only,
                             use_payoff_as_input=use_payoff_as_input)
   elif algo in ["LSM", "LSMDeg1", "LSMLaguerre"]:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
@@ -365,27 +380,52 @@ def _run_algo(
                             train_ITM_only=train_ITM_only,
                             ridge_coeff=ridge_coeff,
                             use_payoff_as_input=use_payoff_as_input)
+  elif "FQI" in algo:
+      pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
+                            train_ITM_only=train_ITM_only,
+                            use_payoff_as_input=use_payoff_as_input)
   else:
       pricer = _ALGOS[algo](stock_model_, payoff_, nb_epochs=nb_epochs,
                             use_payoff_as_input=use_payoff_as_input)
 
   t_begin = time.time()
 
-  # price, gen_time, delta, gamma = pricer.price_and_greeks(
-  #     eps=eps, greeks_method=greeks_method, poly_deg=poly_deg,
-  #     fd_freeze_exe_boundary=fd_freeze_exe_boundary)
-  # print(price, gen_time, delta, gamma)
+  if DEBUG:
+      if compute_upper_bound:
+          price, price_u, gen_time = pricer.price_upper_lower_bound(
+              train_eval_split=train_eval_split)
+          delta, gamma, theta, rho, vega = [None] * 5
+      elif not compute_greeks:
+          price, gen_time = pricer.price(train_eval_split=train_eval_split)
+          delta, gamma, theta, rho, vega, price_u = [None] * 6
+      else:
+          price, gen_time, delta, gamma, theta, rho, vega = pricer.price_and_greeks(
+              eps=eps, greeks_method=greeks_method, poly_deg=poly_deg,
+              reg_eps=reg_eps,
+              fd_freeze_exe_boundary=fd_freeze_exe_boundary,
+              fd_compute_gamma_via_PDE=fd_compute_gamma_via_PDE,
+              train_eval_split=train_eval_split)
+          price_u = None
+      duration = time.time() - t_begin
+      comp_time = duration - gen_time
+      return
 
   try:
-    if not compute_greeks:
-        price, gen_time = pricer.price()
-        delta, gamma, theta, rho, vega = [None]*5
+    if compute_upper_bound:
+        price, price_u, gen_time = pricer.price_upper_lower_bound(
+            train_eval_split=train_eval_split)
+        delta, gamma, theta, rho, vega = [None] * 5
+    elif not compute_greeks:
+        price, gen_time = pricer.price(train_eval_split=train_eval_split)
+        delta, gamma, theta, rho, vega, price_u = [None]*6
     else:
         price, gen_time, delta, gamma, theta, rho, vega = pricer.price_and_greeks(
             eps=eps, greeks_method=greeks_method, poly_deg=poly_deg,
             reg_eps=reg_eps,
             fd_freeze_exe_boundary=fd_freeze_exe_boundary,
-            fd_compute_gamma_via_PDE=fd_compute_gamma_via_PDE)
+            fd_compute_gamma_via_PDE=fd_compute_gamma_via_PDE,
+            train_eval_split=train_eval_split)
+        price_u = None
     duration = time.time() - t_begin
     comp_time = duration - gen_time
   except BaseException as err:
@@ -427,7 +467,9 @@ def _run_algo(
   metrics_['rho'] = rho
   metrics_['vega'] = vega
   metrics_['greeks_method'] = greeks_method
-  print("price: ", price, "computation-time: ", comp_time,
+  metrics_['price_upper_bound'] = price_u
+  print("price: ", price, "price upper: ", price_u,
+        "computation-time: ", comp_time,
         "delta: ", delta, "gamma: ", gamma, "theta: ", theta, "rho: ", rho,
         "vega: ", vega)
   with open(metrics_fpath, "w") as metrics_f:
@@ -437,6 +479,11 @@ def _run_algo(
 
 def main(argv):
   del argv
+
+  if FLAGS.DEBUG:
+      configs.path_gen_seed.set_seed(FLAGS.path_gen_seed)
+      filepath = _run_algos()
+      return
 
   try:
       if SEND:

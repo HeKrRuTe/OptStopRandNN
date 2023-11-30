@@ -93,6 +93,7 @@ python3 -m cProfile optimal_stopping/run/run_algo.py   --algo=longstaffSchwartz 
   - **nb_jobs**: int, the number of parallel runs
   - **print_errors**: debugging mode
   - **path_gen_seed**: seed for path generation, default: None (-> using random seed)
+  - **compute_upper_bound**: compute upper bound for the price
 
 
 
@@ -102,7 +103,7 @@ Max call option on Black Scholes for different number of stocks d and varying in
 
 Generate tables of paper:
 ```shell
-python optimal_stopping/run/run_algo.py --configs="table_spots_Dim_BS_MaxCallr0","table_Dim_Heston_MaxCallr0","table_spots_Dim_BS_MaxCallr0_do","table_Dim_Heston_MaxCallr0_do","table_spots_Dim_BS_MaxCallr0_bf","table_Dim_Heston_MaxCallr0_bf","table_smallDim_BS_GeoPut","table_Dim_BS_BasktCallr0","table_Dim_BS_BasktCallr0_bf","table_manyDates_BS_MaxCallr0_1","table_manyDates_BS_MaxCallr0_2","table_spots_Dim_MaxCallr0_ref","table_spots_Dim_BasktCallr0_ref" --nb_jobs=10;
+python optimal_stopping/run/run_algo.py --configs="table_spots_Dim_BS_MaxCallr0","table_Dim_Heston_MaxCallr0","table_spots_Dim_BS_MaxCallr0_do","table_Dim_Heston_MaxCallr0_do","table_spots_Dim_BS_MaxCallr0_bf","table_Dim_Heston_MaxCallr0_bf","table_smallDim_BS_GeoPut","table_Dim_BS_BasktCallr0","table_Dim_BS_BasktCallr0_bf","table_manyDates_BS_MaxCallr0_1","table_manyDates_BS_MaxCallr0_2","table_spots_Dim_MaxCallr0_ref","table_spots_Dim_BasktCallr0_ref","table_manyDates_BS_MaxCallr0_ref" --nb_jobs=10;
 python optimal_stopping/run/write_figures.py --configs="table_spots_Dim_BS_MaxCallr0_gt1","table_Dim_Heston_MaxCallr0_gt1","table_BasketCall_payoffsr0_gt1","table_manyDates_BS_MaxCallr0_gt1";
 python optimal_stopping/run/write_figures.py --configs="table_GeoPut_payoffs_gt1" --rm_from_index="volatility","dividend","nb_dates";
 python optimal_stopping/utilities/plot_tables.py --configs="table_spots_Dim_BS_MaxCallr0_gt1","table_Dim_Heston_MaxCallr0_gt1","table_BasketCall_payoffsr0_gt1","table_GeoPut_payoffs_gt1","table_manyDates_BS_MaxCallr0_gt1";
@@ -165,7 +166,7 @@ python optimal_stopping/run/write_figures.py --configs="table_Dim_HestonV_MaxCal
 python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_HestonV_MaxCall_div_gt1"
 
 # RoughHeston
-python optimal_stopping/run/run_algo.py --configs="table_Dim_RoughHestonV_MaxCall","table_Dim_RoughHestonV_MaxCall_dopath","table_Dim_RoughHestonV_MaxCall_bf","table_Dim_RoughHestonV_MaxCall_RRLSM", --nb_jobs=10;
+python optimal_stopping/run/run_algo.py --configs="table_Dim_RoughHestonV_MaxCall","table_Dim_RoughHestonV_MaxCall_dopath","table_Dim_RoughHestonV_MaxCall_bf","table_Dim_RoughHestonV_MaxCall_RRLSM" --nb_jobs=10;
 python optimal_stopping/run/write_figures.py --configs="table_Dim_RoughHestonV_MaxCall_gt" --rm_from_index="factors","use_path";
 python optimal_stopping/run/write_figures.py --configs="table_Dim_RoughHestonV_MaxCall_gt1" --rm_from_index="factors","use_path";
 python optimal_stopping/utilities/plot_tables.py --configs="table_Dim_RoughHestonV_MaxCall_gt1"
@@ -231,39 +232,24 @@ python optimal_stopping/run/write_figures.py --configs=table_OtherBasis_MaxCall;
 ```
 
 
+### Compute Lower and Upper bounds:
+```sh
+python optimal_stopping/run/run_algo.py --configs=table_price_lower_upper_1 --compute_upper_bound --nb_jobs=10;
+```
+
+
+
 ### Compute Greeks (and price):
 Currently, the Greeks: delta, gamma, theta, rho and vega are supported.
-For the computation of delta and gamma, there are multiple computation possibilities,
+For the computation of delta and gamma, there are multiple computation possibilities, 
 since the computation of gamma (as 2nd derivative) tends to be unstable.
 The different possibilities are:
-- central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and the respective 2nd order FD method for gamma. this is unstable for gamma (didn't produce good results in any of our tests) and is therefore not recommended.
-- central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and computation of gamma via the Black-Scholes PDE. This gives good results, if theta is computed well (which is the case for all methods except NLSM and DOS). This method is currently restricted to the case of a underlying Black-Scholes model.
-- both of the above methods can be computed either with or without freezing the execution boundary. We recommend to use *fd_freeze_exe_boundary=True*, since it stabilizes the results. Moreover, the epsilon for the FD method can be chosen (recommended *eps=1e-9*).
-- the regression based method (see the "naive method" (Section 3.1) in [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)). This method is very stable. Here epsilon (the standard deviation of the distortion term) and the degree of the polynomial basis for regression have to be chosen (recommended *eps=5*, *poly_deg=9*).
+  - central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and the respective 2nd order FD method for gamma. this is unstable for gamma (didn't produce good results in any of our tests) and is therefore not recommended.
+  - central, forward, backward [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference) for delta and computation of gamma via the Black-Scholes PDE. This gives good results, if theta is computed well (which is the case for all methods). This method is currently restricted to the case of a underlying Black-Scholes model.
+  - both of the above methods can be computed either with or without freezing the execution boundary. We recommend to use *fd_freeze_exe_boundary=True*, since it stabilizes the results. Moreover, the epsilon for the FD method can be chosen (recommended *eps=1e-9*).
+  - the regression based method (see the "naive method" (Section 3.1) in [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)). This method is very stable. Here epsilon (the standard deviation of the distortion term) and the degree of the polynomial basis for regression have to be chosen (recommended *eps=5*, *poly_deg=2*).
 
 The greeks theta, rho, vega are always computed via central FD method, since there are no stability issues. Also here, the epsilon is controlled with *eps*, together with the epsilon for the FD method for delta and gamma. For the binomial model, we recommend *eps=1e-9*.
-
-**Generate the greeks table of the paper:**
-
-Via (central) [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference):
-```sh
-python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=1e-9 --fd_freeze_exe_boundary=True
-```
-
-Via regression method (see the paper [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)):
-```sh
-python optimal_stopping/run/run_algo.py --configs=table_greeks_1 --nb_jobs=1 --compute_greeks=True --greeks_method="regression" --reg_eps=5 --eps=1e-9 --poly_deg=9 --fd_freeze_exe_boundary=True
-```
-
-For the binomial model:
-````sh
-python optimal_stopping/run/run_algo.py --configs=table_greeks_binomial --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=1e-9
-````
-
-To get the table from the paper, run afterwards:
-```shell
-python optimal_stopping/utilities/get_comparison_csv.py
-```
 
 **Overview of flags specific to greeks computation:**
   - **compute_greeks**: whether to compute greeks or do pricing only
@@ -272,6 +258,43 @@ python optimal_stopping/utilities/get_comparison_csv.py
   - **eps**: the epsilon for the FD method or the standard deviation of the distortion term in the regression method.
   - **fd_freeze_exe_boundary**: whether to use the central execution boundary for the upper and lower term also when computing delta.
   - **poly_deg**: the degree of the polynomial used in the regression method
+
+
+**Generate the greeks table of the paper:**
+
+Via (central) [finite difference (FD) method](https://en.wikipedia.org/wiki/Finite_difference):
+```sh
+python optimal_stopping/run/run_algo.py --configs=table_greeks_1,table_greeks_1_2 --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=1e-9 --fd_freeze_exe_boundary=True
+```
+
+Via regression method (see the paper [Simulated Greeks for American Options](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3503889)):
+```sh
+python optimal_stopping/run/run_algo.py --configs=table_greeks_1,table_greeks_1_2 --nb_jobs=1 --compute_greeks=True --greeks_method="regression" --reg_eps=5 --eps=1e-9 --poly_deg=9 --fd_freeze_exe_boundary=True
+```
+
+For the binomial model:
+````sh
+python optimal_stopping/run/run_algo.py --configs=table_greeks_binomial --nb_jobs=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=1e-9
+````
+
+Get greeks plot:
+````shell
+python optimal_stopping/run/run_algo.py --configs=table_greeks_plots --nb_jobs=48 --compute_greeks=True --greeks_method="regression" --reg_eps=5 --eps=1e-9 --poly_deg=2 --fd_freeze_exe_boundary=True
+python optimal_stopping/utilities/plot_greeks.py
+````
+
+Get tables for sensitivity to randomness of hidden layers:
+```shell
+python optimal_stopping/run/run_algo.py --configs=SensRand_greeks_table1,SensRand_greeks_table1_1 --nb_jobs=1 --path_gen_seed=1 --compute_greeks=True --greeks_method="central" --fd_compute_gamma_via_PDE=True --eps=1e-9
+```
+
+
+### Generate additional tables from paper
+To get the table from the paper, run afterwards:
+```shell
+python optimal_stopping/utilities/get_comparison_csv.py
+```
+
 
 ---
 
@@ -297,7 +320,7 @@ url       = {https://arxiv.org/abs/2104.13669}}
 
 ---
 
-Last Page Update: **06/04/2022**
+
 
 
 

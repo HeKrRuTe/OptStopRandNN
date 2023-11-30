@@ -48,7 +48,7 @@ class Model:
       raise NotImplemented()
 
   def generate_paths(self, nb_paths=None):
-    """Returns a nparray (nb_paths * nb_stocks * nb_dates) with prices."""
+    """Returns a nparray (nb_paths * nb_stocks * nb_dates+1) with prices."""
     nb_paths = nb_paths or self.nb_paths
     if NB_JOBS_PATH_GEN > 1:
         return np.array(
@@ -76,46 +76,63 @@ class BlackScholes(Model):
     del t
     return self.volatility * x
 
-  # def generate_one_path(self):
-  #   """Returns a nparray (nb_stocks * nb_dates) with prices."""
-  #   path = np.empty((self.nb_stocks, self.nb_dates+1))
-  #   path[:, 0] = self.spot
-  #   for k in range(1, self.nb_dates+1):
-  #     random_numbers = np.random.normal(0, 1, self.nb_stocks)
-  #     dW = random_numbers*np.sqrt(self.dt)
-  #     previous_spots = path[:, k - 1]
-  #     diffusion = self.diffusion_fct(previous_spots, (k) * self.dt)
-  #     path[:, k] = (
-  #         previous_spots
-  #         + self.drift_fct(previous_spots, (k) * self.dt) * self.dt
-  #         + np.multiply(diffusion, dW))
-  #   return path
-
-  def generate_paths(self, nb_paths=None, return_dW=False, dW=None, X0=None):
+  def generate_paths(self, nb_paths=None, return_dW=False, dW=None, X0=None,
+                     nb_dates=None):
     """Returns a nparray (nb_paths * nb_stocks * nb_dates) with prices."""
     nb_paths = nb_paths or self.nb_paths
-    spot_paths = np.empty((nb_paths, self.nb_stocks, self.nb_dates+1))
+    nb_dates = nb_dates or self.nb_dates
+    spot_paths = np.empty((nb_paths, self.nb_stocks, nb_dates+1))
     if X0 is None:
         spot_paths[:, :, 0] = self.spot
     else:
         spot_paths[:, :, 0] = X0
     if dW is None:
         random_numbers = np.random.normal(
-            0, 1, (nb_paths, self.nb_stocks, self.nb_dates))
+            0, 1, (nb_paths, self.nb_stocks, nb_dates))
         dW = random_numbers * np.sqrt(self.dt)
     drift = self.drift
     r = np.repeat(np.repeat(np.repeat(
         np.reshape(drift, (-1, 1, 1)), nb_paths, axis=0),
-        self.nb_stocks, axis=1), self.nb_dates, axis=2)
+        self.nb_stocks, axis=1), nb_dates, axis=2)
     sig = np.repeat(np.repeat(np.repeat(
         np.reshape(self.volatility, (-1, 1, 1)), nb_paths, axis=0),
-        self.nb_stocks, axis=1), self.nb_dates, axis=2)
+        self.nb_stocks, axis=1), nb_dates, axis=2)
     spot_paths[:, :,  1:] = np.repeat(
-        spot_paths[:, :, 0:1], self.nb_dates, axis=2) * np.exp(np.cumsum(
+        spot_paths[:, :, 0:1], nb_dates, axis=2) * np.exp(np.cumsum(
         r * self.dt - (sig ** 2) * self.dt / 2 + sig * dW, axis=2))
     # dimensions: [nb_paths, nb_stocks, nb_dates+1]
     if return_dW:
         return spot_paths, None, dW
+    return spot_paths, None
+
+  def generate_paths_with_alternatives(
+          self, nb_paths=None, nb_alternatives=1, nb_dates=None):
+    """Returns a nparray (nb_paths * nb_stocks * nb_dates) with prices."""
+    nb_paths = nb_paths or self.nb_paths
+    nb_dates = nb_dates or self.nb_dates
+    total_nb_paths = nb_paths + nb_paths * nb_alternatives * nb_dates
+    spot_paths = np.empty((total_nb_paths, self.nb_stocks, nb_dates+1))
+    spot_paths[:, :, 0] = self.spot
+    random_numbers = np.random.normal(
+        0, 1, (total_nb_paths, self.nb_stocks, nb_dates))
+    mult = nb_alternatives * nb_paths
+    for i in range(nb_dates-1):
+        random_numbers[
+            nb_paths+i*mult:nb_paths+(i+1)*mult,:,:nb_dates-i-1] = np.tile(
+            random_numbers[:nb_paths, :, :nb_dates-i-1],
+            reps=(nb_alternatives, 1, 1))
+    dW = random_numbers * np.sqrt(self.dt)
+    drift = self.drift
+    r = np.repeat(np.repeat(np.repeat(
+        np.reshape(drift, (-1, 1, 1)), total_nb_paths, axis=0),
+        self.nb_stocks, axis=1), nb_dates, axis=2)
+    sig = np.repeat(np.repeat(np.repeat(
+        np.reshape(self.volatility, (-1, 1, 1)), total_nb_paths, axis=0),
+        self.nb_stocks, axis=1), nb_dates, axis=2)
+    spot_paths[:, :,  1:] = np.repeat(
+        spot_paths[:, :, 0:1], nb_dates, axis=2) * np.exp(np.cumsum(
+        r * self.dt - (sig ** 2) * self.dt / 2 + sig * dW, axis=2))
+    # dimensions: [nb_paths, nb_stocks, nb_dates+1]
     return spot_paths, None
 
 
@@ -194,7 +211,7 @@ class FractionalBrownianMotionPathDep(FractionalBrownianMotion):
     assert spot == 0
     super(FractionalBrownianMotionPathDep, self).__init__(
       drift, volatility, hurst, nb_paths, nb_stocks, nb_dates, spot,
-      maturity, dividend=0, name="FractionalBrownianMotionPathDep", **keywords)
+      maturity, dividend=0, **keywords)
     self.nb_stocks = nb_dates + 1
     self._nb_stocks = 1
 
@@ -314,7 +331,7 @@ class HestonWithVar(Heston):
         super(HestonWithVar, self).__init__(
             drift, volatility, mean, speed, correlation, nb_stocks, nb_paths,
             nb_dates, spot, maturity, dividend=dividend, sine_coeff=sine_coeff,
-            name="HestonWithVar", **kwargs
+            **kwargs
         )
         self.return_var = True
 
@@ -338,6 +355,7 @@ class RoughHeston(Model):
         self.mean = mean
         self.speed = speed
         self.nb_steps_mult = nb_steps_mult
+        self.dt = self.maturity/(self.nb_dates*self.nb_steps_mult)
         self.correlation = correlation
         assert 0 < hurst < 1/2
         self.H = hurst
@@ -484,7 +502,7 @@ class RoughHestonWithVar(RoughHeston):
             mean, speed, correlation,
             nb_stocks, nb_paths, nb_dates, maturity,
             nb_steps_mult=nb_steps_mult, v0=v0, hurst=hurst, dividend=dividend,
-            name="RoughHestonWithVar", **kwargs
+            **kwargs
         )
         self.return_var = True
 

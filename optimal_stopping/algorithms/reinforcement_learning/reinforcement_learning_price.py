@@ -19,7 +19,7 @@ class FQI_RL(backward_induction_pricer.AmericanOptionPricer):
   """fitted Q-Iterration base class"""
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               use_payoff_as_input=False):
+               train_ITM_only=True, use_payoff_as_input=False):
     del nb_batches
     self.model = model
     self.use_var = False
@@ -29,6 +29,7 @@ class FQI_RL(backward_induction_pricer.AmericanOptionPricer):
     self.nb_epochs = nb_epochs
     self.nb_base_fcts = 0
     self.use_payoff_as_input = use_payoff_as_input
+    self.train_ITM_only = train_ITM_only
 
 
   def get_indicator_stop(self, payoff, continuation_value):

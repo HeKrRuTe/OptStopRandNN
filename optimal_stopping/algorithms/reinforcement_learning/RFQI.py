@@ -22,8 +22,10 @@ class FQI_Reservoir(reinforcement_learning_price.FQI_RL):
   """
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
+               train_ITM_only=True,
                hidden_size=20, use_payoff_as_input=False):
     super().__init__(model, payoff, nb_epochs,
+                     train_ITM_only=train_ITM_only,
                      use_payoff_as_input=use_payoff_as_input)
     del nb_batches
     self.model = model
@@ -50,14 +52,19 @@ class FQI_ReservoirFast(FQI.FQIFast):
   """Computes the American option price using randomized fitted Q-Iteration (RFQI)"""
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               hidden_size=20, factors=(1.,), train_ITM_only=None,
+               hidden_size=20, factors=(1.,), train_ITM_only=True,
                use_payoff_as_input=False):
     super().__init__(model, payoff, nb_epochs,
+                     train_ITM_only=train_ITM_only,
                      use_payoff_as_input=use_payoff_as_input)
     del nb_batches, train_ITM_only
     self.model = model
     self.payoff = payoff
-    self.dim_out = max(min(hidden_size, self.model.nb_stocks), 1)
+    if hidden_size < 0:
+      hidden_size = max(self.model.nb_stocks*abs(hidden_size), 5)
+    else:
+      self.dim_out = max(min(hidden_size, self.model.nb_stocks), 1)
+    self.dim_out = hidden_size
     self.nb_base_fcts = self.dim_out + 1
     self.state_size = self.model.nb_stocks*(1+self.use_var) + 2 + \
                       self.use_payoff_as_input*1
@@ -86,11 +93,12 @@ class FQI_ReservoirFastRidge(FQI.FQIFastRidge):
   """
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               hidden_size=20, factors=(1.,), train_ITM_only=None,
+               hidden_size=20, factors=(1.,), train_ITM_only=True,
                ridge_coeff=1.,
                use_payoff_as_input=False):
     super().__init__(model, payoff, nb_epochs,
                      ridge_coeff=ridge_coeff,
+                     train_ITM_only=train_ITM_only,
                      use_payoff_as_input=use_payoff_as_input)
     del nb_batches, train_ITM_only
     self.model = model
@@ -133,9 +141,10 @@ class FQI_ReservoirFastTanh(FQI_ReservoirFast):
   """FQI_Reservoir"""
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               hidden_size=20, factors=(1.,), train_ITM_only=None,
+               hidden_size=20, factors=(1.,), train_ITM_only=True,
                use_payoff_as_input=False):
     super().__init__(model, payoff, nb_epochs, nb_batches, hidden_size,
+                     train_ITM_only=train_ITM_only,
                      use_payoff_as_input=use_payoff_as_input)
     del nb_batches, train_ITM_only
     self.reservoir2 = randomized_neural_networks.Reservoir2(
@@ -147,9 +156,10 @@ class FQI_ReservoirFastSoftplus(FQI_ReservoirFast):
   """FQI_Reservoir"""
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               hidden_size=20, factors=(1.,), train_ITM_only=None,
+               hidden_size=20, factors=(1.,), train_ITM_only=True,
                use_payoff_as_input=False):
     super().__init__(model, payoff, nb_epochs, nb_batches, hidden_size,
+                     train_ITM_only=train_ITM_only,
                      use_payoff_as_input=use_payoff_as_input)
     del nb_batches, train_ITM_only
     self.reservoir2 = randomized_neural_networks.Reservoir2(
@@ -162,9 +172,10 @@ class FQI_ReservoirFastRNN(FQI.FQIFast):
   """Computes the American option price using randomized recurrent fitted Q-Iteration (RRFQI)"""
 
   def __init__(self, model, payoff, nb_epochs=20, nb_batches=None,
-               hidden_size=20, factors=(1., 1.), train_ITM_only=None,
+               hidden_size=20, factors=(1., 1.), train_ITM_only=True,
                use_payoff_as_input=False):
     super().__init__(model, payoff, nb_epochs,
+                     train_ITM_only=train_ITM_only,
                      use_payoff_as_input=use_payoff_as_input)
     del nb_batches, train_ITM_only
     self.model = model

@@ -96,20 +96,27 @@ class ReservoirLeastSquares(Regression):
 
 class ReservoirLeastSquares2(Regression):
   def __init__(self, state_size, hidden_size=10, factors=(1.,),
-               activation=torch.nn.LeakyReLU(0.5)):
+               activation=torch.nn.LeakyReLU(0.5), reinit=False):
     self.nb_base_fcts = hidden_size + 1
     self.state_size = state_size
+    self.reinit = reinit
     self.reservoir = randomized_neural_networks.Reservoir2(
       hidden_size, self.state_size, factors=factors, activation=activation)
 
-  def calculate_regression(self, X_unsorted, Y, in_the_money, in_the_money_all):
+  def calculate_regression(self, X_unsorted, Y, in_the_money, in_the_money_all,
+                           coefficients=None, return_coefficients=False):
+    if self.reinit:
+      self.reservoir.init()
     X = torch.from_numpy(X_unsorted)
     X = X.type(torch.float32)
     reg_input = np.concatenate(
       [self.reservoir(X).detach().numpy(), np.ones((len(X), 1))], axis=1)
-    coefficients = np.linalg.lstsq(
-      reg_input[in_the_money[0]], Y[in_the_money[0]], rcond=None)
+    if coefficients is None:
+      coefficients = np.linalg.lstsq(
+        reg_input[in_the_money[0]], Y[in_the_money[0]], rcond=None)
     continuation_values = np.dot(reg_input[in_the_money_all[0]], coefficients[0])
+    if return_coefficients:
+      return continuation_values, coefficients
     return continuation_values
 
 

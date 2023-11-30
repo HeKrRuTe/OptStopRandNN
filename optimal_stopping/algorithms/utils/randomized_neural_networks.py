@@ -65,8 +65,11 @@ class Reservoir2(torch.nn.Module):
             activation
         ]
         self.NN = torch.nn.Sequential(*layers)
-        if len(factors) == 8:
-            _init_weights = init_weights_gen(*factors[3:])
+        self.init()
+
+    def init(self):
+        if len(self.factors) == 8:
+            _init_weights = init_weights_gen(*self.factors[3:])
         else:
             _init_weights = init_weights
         self.apply(_init_weights)

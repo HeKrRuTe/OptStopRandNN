@@ -10,6 +10,7 @@ import numpy as np
 from optimal_stopping.algorithms.backward_induction import \
     backward_induction_pricer
 from optimal_stopping.algorithms.utils import randomized_neural_networks
+import sklearn.linear_model
 
 
 class ReservoirRNNLeastSquarePricer(
@@ -71,3 +72,34 @@ class ReservoirRNNLeastSquarePricer2(ReservoirRNNLeastSquarePricer):
       self.RNN = randomized_neural_networks.randomRNN(
           state_size=state_size, hidden_size=hidden_size, factors=factors,
           extend=False)
+
+
+class ReservoirRNNLeastSquarePricer2Ridge(ReservoirRNNLeastSquarePricer2):
+  def __init__(self, model, payoff, hidden_size=100, factors=(1.,1.,),
+               ridge_coeff=1.,
+               nb_epochs=None, nb_batches=None, train_ITM_only=True,
+               use_payoff_as_input=False):
+      super().__init__(model, payoff, hidden_size, factors, nb_epochs,
+                       nb_batches, train_ITM_only=train_ITM_only,
+                       use_payoff_as_input=use_payoff_as_input)
+      self.alpha = ridge_coeff
+
+  def calculate_continuation_value(self, values, immediate_exercise_value, h):
+      """" See base class """
+      if self.train_ITM_only:
+          in_the_money = np.where(immediate_exercise_value[:self.split] > 0)
+          in_the_money_all = np.where(immediate_exercise_value > 0)
+      else:
+          in_the_money = np.where(
+              immediate_exercise_value[:self.split] < np.infty)
+          in_the_money_all = np.where(immediate_exercise_value < np.infty)
+      return_values = np.zeros(h.shape[0])
+      reg_input = np.concatenate(
+          [h, np.ones((len(h), 1))], axis=1)
+      model = sklearn.linear_model.Ridge(alpha=self.alpha)
+      model.fit(X=reg_input[in_the_money[0]], y=values[in_the_money[0]])
+      continuation_values = model.predict(reg_input[in_the_money_all[0]])
+      return continuation_values
+
+
+
