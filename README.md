@@ -3,7 +3,7 @@
 [![DOI](https://zenodo.org/badge/362390705.svg)](https://zenodo.org/badge/latestdoi/362390705)
 
 This repository is the official implementation of the paper
-[Optimal Stopping via Randomized Neural Networks](https://arxiv.org/abs/2104.13669).
+[Optimal Stopping via Randomized Neural Networks](https://www.aimsciences.org/article/doi/10.3934/fmf.2023022).
 
 ## Installation
 
@@ -40,12 +40,12 @@ That's all!
   * LSM: Least Square Monte Carlo. [(Longstaff and Schwartz, 2001)](https://people.math.ethz.ch/~hjfurrer/teaching/LongstaffSchwartzAmericanOptionsLeastSquareMonteCarlo.pdf)
   * NLSM: Neural Least Square Monte Carlo. [(Lapeyre  and Lelong, 2019)](https://arxiv.org/abs/1907.06474) [(Becker, Cheridito and Jentzen, 2019)](https://arxiv.org/abs/1912.11060)
   * DOS: Deep Optimal Stopping. [(Becker, Cheridito and Jentzen, 2019)](https://www.jmlr.org/papers/volume20/18-232/18-232.pdf)
-  * RLSM: Randomized Least Square Monte Carlo. [(Herrera, Krach, Ruyssen and Teichmann 2021)](https://arxiv.org/abs/2104.13669)
-  * RRLSM: Randomized Recurrent Least Square Monte Carlo. [(Herrera, Krach, Ruyssen and Teichmann 2021)](https://arxiv.org/abs/2104.13669)
+  * RLSM: Randomized Least Square Monte Carlo. [(Herrera, Krach, Ruyssen and Teichmann 2021)](https://www.aimsciences.org/article/doi/10.3934/fmf.2023022)
+  * RRLSM: Randomized Recurrent Least Square Monte Carlo. [(Herrera, Krach, Ruyssen and Teichmann 2021)](https://www.aimsciences.org/article/doi/10.3934/fmf.2023022)
 * Reinforcement Learning
   * FQI: fitted Q-Iteration. [(Tsitsiklis and Van Roy, 2001)](https://www.mit.edu/~jnt/Papers/J086-01-bvr-options.pdf) [(Li, Szepesvari and Schuurmans, 2009)](http://proceedings.mlr.press/v5/li09d/li09d.pdf)
   * LSPI: least-squares policy iteration. [(Li, Szepesvari and Schuurmans, 2009)](http://proceedings.mlr.press/v5/li09d/li09d.pdf)
-  * RFQI: randomized fitted Q-Iteration. [(Herrera, Krach, Ruyssen and Teichmann 2021)](https://arxiv.org/abs/2104.13669)
+  * RFQI: randomized fitted Q-Iteration. [(Herrera, Krach, Ruyssen and Teichmann 2021)](https://www.aimsciences.org/article/doi/10.3934/fmf.2023022)
 
 ---
 
@@ -310,15 +310,14 @@ This code can be used in accordance with the [LICENSE](LICENSE).
 ## Citation
 
 If you use this library for your publications, please cite our paper:
-[Optimal Stopping via Randomized Neural Networks](https://arxiv.org/abs/2104.13669).
+[Optimal Stopping via Randomized Neural Networks](https://www.aimsciences.org/article/doi/10.3934/fmf.2023022).
 ```
 @article{OptStopRandNN2021,
 author    = {Herrera, Calypso and Krach, Florian and Ruyssen, Pierre and Teichmann, Josef },
 title     = {Optimal Stopping via Randomized Neural Networks},
-journal   = {CoRR},
-volume    = {abs/2104.13669},
-year      = {2021},
-url       = {https://arxiv.org/abs/2104.13669}}
+journal   = {Frontiers of Mathematical Finance},
+year      = {2023},
+url       = {https://www.aimsciences.org/article/doi/10.3934/fmf.2023022}}
 ```
 
 ---
