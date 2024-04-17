@@ -70,6 +70,10 @@ uses all but one available CPUs.
 ```sh
 python optimal_stopping/run/run_algo.py --nb_jobs=N --configs=...
 ```
+**Note**: `...` needs to be replaced by a string which is the name of 
+a parameter configuration defined in [configs.py](optimal_stopping/run/configs.py).
+New parameter configurations can be defined there for usage.
+
 
 Generate tables directly:
 
